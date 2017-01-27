@@ -1,0 +1,23 @@
+<launch>
+
+<arg name="map">
+<arg name="db_path">
+
+<include file="$(find mongodb_store)/launch/mongodb_store.launch">
+    <param name="db_path" value="$(arg db_path)"/>
+    <param name="port" value="62345"/>
+</include>
+
+<node pkg="map_server" type="map_server" name="map_server" args="$(arg map)"/>
+
+<node pkg="rbpf_mtt" type="test_filter.py" name="test_filter"/>
+
+<!-- Service: configs -->
+<node= pkg="soma_roi" type="soma_roi_drawer.py" name="soma_roi_drawer"/>
+
+<!-- Query ROI service -->
+<node= pkg="soma_roi" type="soma_manager.py" name="soma_manager"/>
+
+<node= pkg="soma_roi" type="soma_map_manager.py" name="soma_map_manager"/>
+
+</launch>
