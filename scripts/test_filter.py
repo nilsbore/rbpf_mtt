@@ -3,7 +3,7 @@
 import numpy as np
 import rospy
 from rbpf_mtt.msg import GMMPoses, ObjectMeasurement
-from rbpf_filter import RBPFMTTFilter
+from rbpf_mtt.rbpf_filter import RBPFMTTFilter
 from geometry_msgs.msg import PoseWithCovariance
 from visualization_msgs.msg import Marker, MarkerArray
 
@@ -100,6 +100,8 @@ class FilterServer(object):
 
 
 if __name__ == '__main__':
+
+    rospy.init_node('test_filter', anonymous=True)
 
     fs = FilterServer()
 
