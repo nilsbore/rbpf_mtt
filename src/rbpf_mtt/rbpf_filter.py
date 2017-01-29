@@ -4,7 +4,9 @@ import math
 def gauss_pdf(y, m, P):
     d = y - m
     denom = math.sqrt(2.*math.pi*np.linalg.det(P))
-    return 1./denom*math.exp(-0.5*d*np.linalg.solve(P, d))
+    if denom < 0.00001:
+        return 0.
+    return 1./denom*math.exp(-0.5*np.dot(d, np.linalg.solve(P, d)))
 
 # this is in principle just a Kalman filter over all the states
 class RBPFMParticle(object):
@@ -22,8 +24,8 @@ class RBPFMParticle(object):
 
     def predict(self, measurement_partition=None):
 
-        spatial_process_noise = 0.5
-        feature_process_noise = 0.05
+        spatial_process_noise = 1.5
+        feature_process_noise = 1.5
 
         sQ = np.identity(self.sm.shape[1]) # process noise
         fQ = np.identity(self.fm.shape[1]) # process noise
@@ -39,17 +41,18 @@ class RBPFMParticle(object):
     # time is a unique identifier > 0 for the measurement occasion
     def update(self, spatial_measurement, feature_measurement, time):
 
-        if len(c) == 0 or c[0] == 0:
-            return
+        #if len(self.c) == 0 or self.c[0] == 0:
+        #    print "No associations sampled yet, can't update..."
+        #    return
 
         if time != self.last_time:
             self.c = []
             self.last_time = time
 
-        pclutter = 0.01 # probability of measurement originating from noise
-        pdclutter = 0.01 # probability density of clutter measurement
-        spatial_measurement_noise = 0.1
-        feature_measurement_noise = 0.1
+        pclutter = 0.1 # probability of measurement originating from noise
+        pdclutter = 0.1 # probability density of clutter measurement
+        spatial_measurement_noise = 1.5
+        feature_measurement_noise = 1.5
 
         # First find out the association
         # likelihoods for each target given
@@ -68,7 +71,7 @@ class RBPFMParticle(object):
         pot_fm = np.zeros((nbr_targets, feature_dim))
         pot_sP = np.zeros((nbr_targets, spatial_dim, spatial_dim)) # the Kalman filter covariances
         pot_fP = np.zeros((nbr_targets, feature_dim, feature_dim))
-        likelihoods = np.zeros(nbr_targets,)
+        likelihoods = np.zeros(nbr_targets+1,)
 
         for j in range(0, nbr_targets):
 
@@ -86,22 +89,27 @@ class RBPFMParticle(object):
 
             # IM = H*X; - no process model!
 
-            sy = spatial_measurement - self.sm[c[0]]
-            fy = feature_measurement - self.fm[c[0]]
+            sy = spatial_measurement - self.sm[j]
+            fy = feature_measurement - self.fm[j]
 
-            sS = self.sP[c[0]] + sR # IS = (R + H*P*H');
-            fS = self.fP[c[0]] + fR
+            sS = self.sP[j] + sR # IS = (R + H*P*H');
+            fS = self.fP[j] + fR
 
-            sK = np.linalg.solve(self.sP[c[0]], sS) # K = P*H'/IS;
-            fK = np.linalg.solve(self.fP[c[0]], fS)
+            sK = np.linalg.solve(self.sP[j], sS) # K = P*H'/IS;
+            fK = np.linalg.solve(self.fP[j], fS)
 
-            pot_sm[c[0]] = self.sm[c[0]] + sK*sy # X = X + K * (y-IM);
-            pot_fm[c[0]] = self.fm[c[0]] + fK*fy
-            pot_sP[c[0]] = (np.identity(spatial_dim) - sK)*self.sP[c[0]]
-            pot_fP[c[0]] = (np.identity(feature_dim) - fK)*self.fP[c[0]]
+            print sK.shape
+            print self.sm[j].shape
+            print (sK*sy).shape
+            print sy.shape
 
-            likelihoods[j] = gauss_pdf(spatial_measurement, self.sm[c[0]], sS) * \
-                             gauss_pdf(feature_measurement, self.fm[c[0]], fS)
+            pot_sm[j] = self.sm[j] + np.dot(sK, sy) # X = X + K * (y-IM);
+            pot_fm[j] = self.fm[j] + np.dot(fK, fy)
+            pot_sP[j] = np.dot((np.identity(spatial_dim) - sK), self.sP[j])
+            pot_fP[j] = np.dot((np.identity(feature_dim) - fK), self.fP[j])
+
+            likelihoods[j] = gauss_pdf(spatial_measurement, self.sm[j], sS) * \
+                             gauss_pdf(feature_measurement, self.fm[j], fS)
         likelihoods[nbr_targets] = pdclutter
 
 
@@ -128,8 +136,8 @@ class RBPFMParticle(object):
         pc = np.zeros((nbr_targets+1,))
         # probability of measurement given association, may arise from clutter anyways?
         pc[:nbr_targets] = (1.-pclutter)*likelihoods[:nbr_targets]
-        pc[nbr_targets] = pclutter*pc[nbr_targets]
-        for picked in c:
+        pc[nbr_targets] = pclutter*likelihoods[nbr_targets]
+        for picked in self.c:
             pc[picked] = 0.
         pc = 1./np.sum(pc)*pc
 
@@ -189,7 +197,7 @@ class RBPFMTTFilter(object):
         samples = np.random.choice(self.nbr_particles, p=weights)
 
         # now resample based on the weights
-        for i in range(0, self.nbr_particles)
+        for i in range(0, self.nbr_particles):
             self.weights[i] = 1./double(nbr_particles)
             self.particles[i] = old_particles[samples[i]]
 
@@ -205,8 +213,12 @@ class RBPFMTTFilter(object):
     def single_update(self, spatial_measurement, feature_measurement, time):
 
         for i, p in enumerate(self.particles):
-            self.weights[i] *= p.update(spatial_measurement, feature_measurement, time)
-        self.weights = 1./np.sum(self.weights)*weights
+            weights_update = p.update(spatial_measurement, feature_measurement, time)
+            print "Updating particle", i, " with weight: ", weights_update
+            self.weights[i] *= weights_update
+        self.weights = 1./np.sum(self.weights)*self.weights
+
+        self.resampled = False
 
     def update(self, spatial_measurements, feature_measurements, time=0.0):
 
@@ -214,10 +226,17 @@ class RBPFMTTFilter(object):
 
         for m in range(0, spatial_measurements.shape[0]):
             for i, p in enumerate(self.particles):
-                self.weights[i] *= p.update(spatial_measurements[m], feature_measurement[m], time)
+                self.weights[i] *= p.single_update(spatial_measurements[m], feature_measurement[m], time)
 
-        self.resampled = False
+    def initialize_target(self, target_id, spatial_measurement, feature_measurement):
 
-    def estimate(self):
+        for i, p in enumerate(self.particles):
+            p.sm[target_id] = spatial_measurement
+            p.fm[target_id] = feature_measurement
+            p.sP[target_id] = 1.0*np.eye(self.dim)
+            p.fP[target_id] = 1.0*np.eye(self.feature_dim)
+
+
+    #def estimate(self):
 
         # what do we want to estimate? basically just a list of objects

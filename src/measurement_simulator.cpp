@@ -26,8 +26,8 @@ public:
         ros::NodeHandle pn("~");
         pn.param<int>("number_targets", nbr_targets, 4);
         pn.param<int>("feature_dim", feature_dim, 4);
-        pn.param<double>("feature_std", feature_std, 0.3);
-        pn.param<double>("spatial_std", spatial_std, 0.3);
+        pn.param<double>("feature_std", feature_std, 0.5);
+        pn.param<double>("spatial_std", spatial_std, 0.5);
 
         std::default_random_engine generator;
         std::normal_distribution<double> feature_distribution(0.0, 1.0);
@@ -48,6 +48,8 @@ public:
         timestep = 0;
         clicked_pub = n.advertise<rbpf_mtt::ObjectMeasurement>("filter_measurements", 1);
         clicked_sub = n.subscribe("/move_base_simple/goal", 1, &MeasurementSimulator::clicked_callback, this);
+
+        cout << "Click to add initialization of object " << 0 << "..." << endl;
     }
 
     Eigen::VectorXd generate_feature(int object_id)

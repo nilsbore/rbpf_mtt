@@ -14,7 +14,7 @@ class FilterServer(object):
         self.gmm_pub = rospy.Publisher('filter_gmms', GMMPoses, queue_size=10)
         self.poses_pub = rospy.Publisher('filter_poses', MarkerArray, queue_size=10)
 
-        self.nbr_targets = 4
+        self.nbr_targets = rospy.get_param('number_targets', 2)
 
         self.filter = RBPFMTTFilter(self.nbr_targets, 100, 4)
         self.initialized = np.zeros((self.nbr_targets,), dtype=bool)
@@ -28,23 +28,33 @@ class FilterServer(object):
 
         feature_measurement = np.zeros((measurement_dim,))
         spatial_measurement = np.zeros((2,))
-        spatial_measurement[0] = pose.pose.position.x
-        spatial_measurement[1] = pose.pose.position.y
+        spatial_measurement[0] = pose.pose.pose.position.x
+        spatial_measurement[1] = pose.pose.pose.position.y
         for i in range(0, measurement_dim):
-            spatial_measurement[i] = pose.feature[i]
+            feature_measurement[i] = pose.feature[i]
 
-        if pose.initialization_id == -1:
-            filter.initialize_target(pose.initialization_id, spatial_measurement, feature_measurement)
-            initialized[pose.initialization_id] = True
+        is_init = np.all(self.initialized)
+        print self.initialized
+        print pose.initialization_id
+        print self.nbr_targets
+        if not is_init and pose.initialization_id != -1:
+            print "Not intialized, adding initialization..."
+            self.filter.initialize_target(pose.initialization_id, spatial_measurement, feature_measurement)
+            self.initialized[pose.initialization_id] = True
         else:
-            if not np.all(initialized):
+            if not is_init:
                 print "All targets have not been initialized, not updating..."
                 return
-            filter.single_update(spatial_measurement, feature_measurement, pose.timestep)
+            print "Intialized, adding measurement..."
+            self.filter.single_update(spatial_measurement, feature_measurement, pose.timestep)
+
+        self.publish_marginals(self.filter)
 
     def publish_marginals(self, rbpfilter):
 
         for j in range(0, rbpfilter.nbr_targets):
+            if not self.initialized[j]:
+                continue
             poses = GMMPoses()
             poses.id = j
             for i in range(0, rbpfilter.nbr_particles):
