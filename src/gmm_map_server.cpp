@@ -139,8 +139,14 @@ public:
 
             // now we simply sample this at map.info.resolution / 2 resolution
             //double denom = 1.0/sqrt(2.0*M_PI*P.determinant());
-            double denom = 1.0/sqrt(P.determinant());
+            double denom = sqrt(2.0*M_PI*P.determinant());
+            if (denom < 0.000001) {
+                ROS_INFO_STREAM("Determinant very small, continuing...");
+                continue;
+            }
+            cout << "P: \n" << P << endl;
             Eigen::Matrix2d Pinv = P.inverse();
+            cout << "P^-1: \n" << Pinv << endl;
 
             int map_x, map_y;
             for (double y = ymin; y < ymax; y += map_res) {
@@ -149,6 +155,7 @@ public:
                     v << x - dist->modes[i].pose.position.x, y - dist->modes[i].pose.position.y;
                     costmaps[dist->id].worldToMapEnforceBounds(x, y, map_x, map_y);
                     if (map.data[costmaps[dist->id].getIndex(map_x, map_y)] != 0) {
+                        prob_accum(map_x, map_y) = 0.0;
                         continue;
                     }
                     //prob_accum(map_y, map_x) += 1.0/denom*exp(-0.5*v.transpose()*Pinv*v);

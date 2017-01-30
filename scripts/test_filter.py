@@ -67,7 +67,7 @@ class FilterServer(object):
                 pose.pose.position.z = 0.
                 # covariance is row-major
                 pose.covariance[0] = P[0, 0]
-                pose.covariance[1] = P[0, 0]
+                pose.covariance[1] = P[0, 1]
                 pose.covariance[6] = P[1, 0]
                 pose.covariance[7] = P[1, 1]
                 poses.modes.append(pose)

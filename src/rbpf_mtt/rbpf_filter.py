@@ -95,8 +95,9 @@ class RBPFMParticle(object):
             sS = self.sP[j] + sR # IS = (R + H*P*H');
             fS = self.fP[j] + fR
 
-            sK = np.linalg.solve(self.sP[j], sS) # K = P*H'/IS;
-            fK = np.linalg.solve(self.fP[j], fS)
+            # sP^T = sP, sR^t = sR -> sS^-1*sP = sP*sS^-1
+            sK = np.linalg.solve(sS, self.sP[j]) # K = P*H'/IS;
+            fK = np.linalg.solve(fS, self.fP[j])
 
             print sK.shape
             print self.sm[j].shape
