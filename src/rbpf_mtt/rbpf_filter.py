@@ -51,8 +51,8 @@ class RBPFMParticle(object):
 
         pclutter = 0.1 # probability of measurement originating from noise
         pdclutter = 0.1 # probability density of clutter measurement
-        spatial_measurement_noise = 1.5
-        feature_measurement_noise = 1.5
+        spatial_measurement_noise = 0.5
+        feature_measurement_noise = 0.5
 
         # First find out the association
         # likelihoods for each target given
@@ -99,10 +99,10 @@ class RBPFMParticle(object):
             sK = np.linalg.solve(sS, self.sP[j]) # K = P*H'/IS;
             fK = np.linalg.solve(fS, self.fP[j])
 
-            print sK.shape
-            print self.sm[j].shape
-            print (sK*sy).shape
-            print sy.shape
+            #print sK.shape
+            #print self.sm[j].shape
+            #print (sK*sy).shape
+            #print sy.shape
 
             pot_sm[j] = self.sm[j] + np.dot(sK, sy) # X = X + K * (y-IM);
             pot_fm[j] = self.fm[j] + np.dot(fK, fy)
@@ -195,11 +195,11 @@ class RBPFMTTFilter(object):
 
         old_particles = self.particles
 
-        samples = np.random.choice(self.nbr_particles, p=weights)
+        samples = np.random.choice(self.nbr_particles, self.nbr_particles, p=self.weights)
 
         # now resample based on the weights
         for i in range(0, self.nbr_particles):
-            self.weights[i] = 1./double(nbr_particles)
+            self.weights[i] = 1./float(self.nbr_particles)
             self.particles[i] = old_particles[samples[i]]
 
         self.resampled = True
@@ -219,7 +219,15 @@ class RBPFMTTFilter(object):
             self.weights[i] *= weights_update
         self.weights = 1./np.sum(self.weights)*self.weights
 
-        self.resampled = False
+        print self.last_time
+        print time
+
+        if self.last_time != time:
+            self.last_time = time
+            #self.resample()
+            self.resampled = False
+        else:
+            self.resampled = False
 
     def update(self, spatial_measurements, feature_measurements, time=0.0):
 

@@ -4,13 +4,13 @@
     <arg name="db_path" default="/home/nbore/mongodb_store"/>
     <arg name="test" default="false"/>
     <arg name="number_targets" default="2"/>
+    <arg name="config" default="moving_objects"/>
+    <arg name="db_name" default="somadata"/>
 
-    <!--
     <include file="$(find mongodb_store)/launch/mongodb_store.launch">
-        <param name="db_path" value="$(arg db_path)"/>
-        <param name="port" value="62345"/>
+        <arg name="db_path" value="$(arg db_path)"/>
+        <arg name="port" value="62345"/>
     </include>
-    -->
 
     <node pkg="map_server" type="map_server" name="map_server" args="$(arg map)"/>
 
@@ -29,6 +29,10 @@
         <param name="number_targets" value="$(arg number_targets)"/>
     </node>
 
+    <node pkg="rbpf_mtt" type="measurement_vis_server.py" name="measurement_vis_server" output="screen" respawn="true">
+        <param name="number_targets" value="$(arg number_targets)"/>
+    </node>
+
     <!-- <node pkg="rbpf_mtt" type="test_filter.py" name="test_filter"/> -->
 
     <!-- Service: configs -->
@@ -37,6 +41,10 @@
     <!-- Query ROI service -->
     <!-- <node= pkg="soma_roi" type="soma_manager.py" name="soma_manager"/> -->
 
-    <!-- <node= pkg="soma_roi" type="soma_map_manager.py" name="soma_map_manager"/> -->
+
+    <node pkg="soma_map_manager" type="soma_map_manager_node.py" name="soma_map_manager" args="--mapname $(arg config)" output="screen"/>
+    <node pkg="soma_manager" name="soma_query_manager_node" type="soma_query_manager_node" args="$(arg db_name) $(arg config) $(arg db_name) roi" output="screen"/>
+    <node pkg="soma_roi_manager" type="soma_roi_node.py" name="soma_roi_node" args="--db_name somadata --collection_name roi $(arg config)" output="screen"/>
+    <node pkg="soma_manager" type="data_manager_node.py" name="data_manager_node" args="--object_collection_name $(arg config) --object_db_name $(arg db_name)"/>
 
 </launch>

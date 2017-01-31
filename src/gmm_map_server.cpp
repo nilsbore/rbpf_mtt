@@ -135,7 +135,7 @@ public:
             double ymax = dist->modes[i].pose.position.y + quantile*ystd;
             double ymin = dist->modes[i].pose.position.y - quantile*ystd;
 
-            ROS_INFO_STREAM("res: " << map_res << ", xmax: " << xmax << ", xmin: " << xmin << ", ymax: " << ymax << ", ymin: " << ymin);
+            //ROS_INFO_STREAM("res: " << map_res << ", xmax: " << xmax << ", xmin: " << xmin << ", ymax: " << ymax << ", ymin: " << ymin);
 
             // now we simply sample this at map.info.resolution / 2 resolution
             //double denom = 1.0/sqrt(2.0*M_PI*P.determinant());
@@ -144,9 +144,9 @@ public:
                 ROS_INFO_STREAM("Determinant very small, continuing...");
                 continue;
             }
-            cout << "P: \n" << P << endl;
+            //cout << "P: \n" << P << endl;
             Eigen::Matrix2d Pinv = P.inverse();
-            cout << "P^-1: \n" << Pinv << endl;
+            //cout << "P^-1: \n" << Pinv << endl;
 
             int map_x, map_y;
             for (double y = ymin; y < ymax; y += map_res) {

@@ -11,6 +11,7 @@ public:
 
     ros::NodeHandle n;
     ros::Subscriber clicked_sub;
+    ros::Subscriber position_sub;
     ros::Publisher clicked_pub;
     bool initialized;
     int current_object_id;
@@ -20,6 +21,7 @@ public:
     double feature_std;
     double spatial_std;
     Eigen::MatrixXd means;
+    std::default_random_engine generator;
 
     MeasurementSimulator() : n()
     {
@@ -48,6 +50,7 @@ public:
         timestep = 0;
         clicked_pub = n.advertise<rbpf_mtt::ObjectMeasurement>("filter_measurements", 1);
         clicked_sub = n.subscribe("/move_base_simple/goal", 1, &MeasurementSimulator::clicked_callback, this);
+        position_sub = n.subscribe("object_positions", 10, &MeasurementSimulator::position_callback, this);
 
         cout << "Click to add initialization of object " << 0 << "..." << endl;
     }
@@ -56,7 +59,7 @@ public:
     {
         // simply sample the feature from an N-dimensional multi_variate gaussian
         // let's assume that we have a few randomly generate mean vectors
-        std::default_random_engine generator;
+        //std::default_random_engine generator;
         std::normal_distribution<double> feature_distribution(0.0, feature_std);
         Eigen::VectorXd feature = means.col(object_id);
         for (int i = 0; i < feature_dim; ++i) {
@@ -67,7 +70,7 @@ public:
 
     Eigen::Vector2d generate_noise()
     {
-        std::default_random_engine generator;
+
         std::normal_distribution<double> spatial_distribution(0.0, spatial_std);
         Eigen::Vector2d noise;
         for (int i = 0; i < 2; ++i) {
@@ -76,11 +79,11 @@ public:
         return noise;
     }
 
-    void clicked_callback(const geometry_msgs::PoseStamped::ConstPtr& pose)
+    void position_callback(const rbpf_mtt::ObjectMeasurement::ConstPtr& pos)
     {
-        rbpf_mtt::ObjectMeasurement meas;
-        meas.pose = *pose;
-        Eigen::VectorXd feature = generate_feature(current_object_id);
+        rbpf_mtt::ObjectMeasurement meas = *pos;
+
+        Eigen::VectorXd feature = generate_feature(meas.initialization_id);
         Eigen::VectorXd noise = generate_noise();
         meas.pose.pose.position.x += noise(0);
         meas.pose.pose.position.y += noise(1);
@@ -88,6 +91,13 @@ public:
         for (int i = 0; i < feature_dim; ++i) {
             meas.feature[i] = feature[i];
         }
+        clicked_pub.publish(meas);
+    }
+
+    void clicked_callback(const geometry_msgs::PoseStamped::ConstPtr& pose)
+    {
+        rbpf_mtt::ObjectMeasurement meas;
+        meas.pose = *pose;
 
         if (initialized) {
             meas.initialization_id = current_object_id;
@@ -113,7 +123,7 @@ public:
             cout << "Click to add initialization of object " << current_object_id << "..." << endl;
         }
 
-        clicked_pub.publish(meas);
+        position_callback(rbpf_mtt::ObjectMeasurement::ConstPtr(new rbpf_mtt::ObjectMeasurement(meas)));
     }
 
 

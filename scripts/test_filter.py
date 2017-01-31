@@ -14,7 +14,7 @@ class FilterServer(object):
         self.gmm_pub = rospy.Publisher('filter_gmms', GMMPoses, queue_size=10)
         self.poses_pub = rospy.Publisher('filter_poses', MarkerArray, queue_size=10)
 
-        self.nbr_targets = rospy.get_param('number_targets', 2)
+        self.nbr_targets = rospy.get_param('~number_targets', 2)
 
         self.filter = RBPFMTTFilter(self.nbr_targets, 100, 4)
         self.initialized = np.zeros((self.nbr_targets,), dtype=bool)

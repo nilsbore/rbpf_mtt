@@ -13,7 +13,7 @@ class TestMapServer(object):
 
         self.gmm_pub = rospy.Publisher('filter_gmms', GMMPoses, queue_size=10)
 
-        self.nbr_targets = self.nbr_targets = rospy.get_param('number_targets', 4)
+        self.nbr_targets = self.nbr_targets = rospy.get_param('~number_targets', 2)
         self.poses = [GMMPoses() for j in range(0, self.nbr_targets)]
         for j in range(0, self.nbr_targets):
             self.poses[j].id = j
