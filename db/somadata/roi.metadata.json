@@ -1,0 +1,1 @@
+{ "indexes" : [ { "v" : 1, "key" : { "_id" : 1 }, "ns" : "somadata.roi", "name" : "_id_" }, { "v" : 1, "key" : { "geoloc" : "2dsphere" }, "ns" : "somadata.roi", "name" : "geoloc_2dsphere" } ] }
