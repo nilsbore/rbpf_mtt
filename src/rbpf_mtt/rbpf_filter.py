@@ -49,8 +49,8 @@ class RBPFMParticle(object):
             self.c = []
             self.last_time = time
 
-        pclutter = 0.1 # probability of measurement originating from noise
-        pdclutter = 0.1 # probability density of clutter measurement
+        pclutter = 0.02 # probability of measurement originating from noise
+        pdclutter = 0.02 # probability density of clutter measurement
         spatial_measurement_noise = 0.5
         feature_measurement_noise = 0.5
 
@@ -213,6 +213,14 @@ class RBPFMTTFilter(object):
 
     def single_update(self, spatial_measurement, feature_measurement, time):
 
+        if self.last_time != time and self.last_time != -1:
+            #self.resample()
+            self.resampled = False
+        else:
+            self.resampled = False
+
+        self.last_time = time
+
         for i, p in enumerate(self.particles):
             weights_update = p.update(spatial_measurement, feature_measurement, time)
             print "Updating particle", i, " with weight: ", weights_update
@@ -222,12 +230,7 @@ class RBPFMTTFilter(object):
         print self.last_time
         print time
 
-        if self.last_time != time:
-            self.last_time = time
-            #self.resample()
-            self.resampled = False
-        else:
-            self.resampled = False
+
 
     def update(self, spatial_measurements, feature_measurements, time=0.0):
 

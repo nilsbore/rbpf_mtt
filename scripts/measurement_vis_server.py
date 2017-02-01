@@ -80,7 +80,9 @@ class MeasurementVisServer(object):
         #hull = Delaunay(ConvexHull(vertices))
 
         published = False
-        for j in range(0, self.nbr_targets):
+        shuffled = np.arange(self.nbr_targets)
+        np.random.shuffle(shuffled)
+        for j in shuffled:#range(0, self.nbr_targets):
             if not self.initialized[j]:
                 continue
             pose = [self.marker_poses[j].position.x, self.marker_poses[j].position.y]
@@ -273,6 +275,7 @@ class MeasurementVisServer(object):
         self.marker_poses[object_id] = pose
         self.marker_server.insert(marker, self.marker_feedback)
         self.marker_server.applyChanges()
+        pose.position.z = 0.15
         self.marker_server.setPose( marker.name, pose )
         self.marker_server.applyChanges()
 
@@ -286,6 +289,7 @@ class MeasurementVisServer(object):
 
         # just do something if there has been no updates for the
         # last x seconds
+        feedback.pose.position.z = 0.15
         self.marker_poses[object_id] = feedback.pose
         self.marker_times[object_id] = rospy.Time.now().to_sec()
 
