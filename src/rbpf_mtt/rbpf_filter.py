@@ -20,12 +20,13 @@ class RBPFMParticle(object):
         self.fP = np.zeros((nbr_targets, feature_dim, feature_dim))
         self.measurement_partitions = np.zeros((nbr_targets), dtype=int) # assigns targets to measurement sets
         self.last_time = -1
+        self.associations = {}
         # the way this is supposed to work is that, when we sample a new c, we can only do it within one set
 
     def predict(self, measurement_partition=None):
 
         spatial_process_noise = 1.5
-        feature_process_noise = 1.5
+        feature_process_noise = 0.1
 
         sQ = np.identity(self.sm.shape[1]) # process noise
         fQ = np.identity(self.fm.shape[1]) # process noise
@@ -36,10 +37,23 @@ class RBPFMParticle(object):
             self.sP[j] = self.sP[j] + sQ
             self.fP[j] = self.fP[j] + fQ
 
+    # this again highlights that we should take all measurements in one go
+    def negative_update(self, spatial_measurement, observation_id):
+
+        if observation_id not in self.associations:
+            return 1.
+
+        j = self.associations[observation_id]
+        sR = spatial_measurement_noise*np.identity(spatial_dim)
+        neg_likelihood = gauss_pdf(spatial_measurement, self.sm[j], sR)
+
+        return 1. - neg_likelihood
+
+
     # spatial_measurement is a vector with just one measurement of the object position
     # feature_measurement is a vector with a measurement of the object feature
     # time is a unique identifier > 0 for the measurement occasion
-    def update(self, spatial_measurement, feature_measurement, time):
+    def update(self, spatial_measurement, feature_measurement, time, observation_id):
 
         #if len(self.c) == 0 or self.c[0] == 0:
         #    print "No associations sampled yet, can't update..."
@@ -49,10 +63,12 @@ class RBPFMParticle(object):
             self.c = []
             self.last_time = time
 
-        pclutter = 0.02 # probability of measurement originating from noise
-        pdclutter = 0.02 # probability density of clutter measurement
-        spatial_measurement_noise = 0.5
-        feature_measurement_noise = 0.5
+        # we somehow need to integrate the feature density into these clutter things
+        pclutter = 0.00002 # probability of measurement originating from noise
+        pdclutter = 0.00002 # probability density of clutter measurement
+        spatial_measurement_noise = 0.4
+        feature_measurement_noise = 0.2
+        pjump = 0.02
 
         # First find out the association
         # likelihoods for each target given
@@ -112,7 +128,23 @@ class RBPFMParticle(object):
             likelihoods[j] = gauss_pdf(spatial_measurement, self.sm[j], sS) * \
                              gauss_pdf(feature_measurement, self.fm[j], fS)
         likelihoods[nbr_targets] = pdclutter
+        #likelihoods = 1./np.sum(likelihoods)*likelihoods
 
+        # optimally, we should jump somewhere if an object
+        # does not have any measurement and there exists a
+        # measurement with poor explanation.
+
+
+        # Note: only one object can jump to a new location
+        # (per measurement)
+        # jumped = (1.-likelihoods/np.sum(likelihoods))*pjump
+        # for picked in self.c:
+        #     jumped[picked] = 0
+        # jumped[-1] = 1.-pjump
+        # jumped = 1./np.sum(jumped)*jumped
+        # i = np.random.choice(nbr_targets+1, p=jumped)
+        # if i < nbr_targets:
+        #     self.sm[i] = np.random.multivariate_normal(spatial_measurement, sR)
 
         # Optimal importance functions for target
         # and clutter associations (i) for each particles (j)
@@ -134,10 +166,11 @@ class RBPFMParticle(object):
         # end
         # PC = PC ./ repmat(sp,size(PC,1),1);
 
-        pc = np.zeros((nbr_targets+1,))
+        pc = np.zeros((nbr_targets+2,))
         # probability of measurement given association, may arise from clutter anyways?
         pc[:nbr_targets] = (1.-pclutter)*likelihoods[:nbr_targets]
         pc[nbr_targets] = pclutter*likelihoods[nbr_targets]
+        pc[nbr_targets+1] = pjump
         for picked in self.c:
             pc[picked] = 0.
         pc = 1./np.sum(pc)*pc
@@ -152,20 +185,30 @@ class RBPFMParticle(object):
         # hitting each of the targets. (optional, default uniform)
         # S{j}.W = S{j}.W * LH(i,j) * TP(i) / PC(i,j);
 
-        i = np.random.choice(nbr_targets+1, p=pc) #categ_rnd()
+        i = np.random.choice(nbr_targets+2, p=pc) #categ_rnd()
         # so what happens here if i ==
-        weights_update = likelihoods[i]/pc[i]
+        if i == nbr_targets+1:
+            weights_update = pjump
+        else:
+            weights_update = likelihoods[i]/pc[i]
 
         if i == nbr_targets:
             pass
             #self.c = nbr_targets # measurement is noise
             #we don't really care if it was associated with noise
+
+        elif i == nbr_targets+1:
+            l = likelihoods[:nbr_targets]/np.sum(likelihoods[:nbr_targets])
+            i = np.random.choice(nbr_targets, p=l)
+            self.sm[i] = spatial_measurement
+            self.sP[i] = 1.0*np.eye(len(spatial_measurement))
         else:
             self.sm[i] = pot_sm[i]
             self.fm[i] = pot_fm[i]
             self.sP[i] = pot_sP[i]
             self.fP[i] = pot_fP[i]
             self.c.append(i)
+            self.associations[observation_id] = i
 
         # Normalize the particles
 
@@ -190,6 +233,7 @@ class RBPFMTTFilter(object):
         self.last_time = -1
 
         self.resampled = False
+        self.time_since_resampling = 0
 
     def resample(self): # maybe this should take measurements?
 
@@ -203,6 +247,7 @@ class RBPFMTTFilter(object):
             self.particles[i] = old_particles[samples[i]]
 
         self.resampled = True
+        self.time_since_resampling = 0
 
     # should this take a time interval also?
     def predict(self):
@@ -211,18 +256,21 @@ class RBPFMTTFilter(object):
             p.predict()
 
 
-    def single_update(self, spatial_measurement, feature_measurement, time):
+    def single_update(self, spatial_measurement, feature_measurement, time, observation_id):
 
-        if self.last_time != time and self.last_time != -1:
+        #if self.last_time != time and self.last_time != -1:
+        if self.time_since_resampling > 5:
             #self.resample()
+            self.time_since_resampling += 1
             self.resampled = False
         else:
+            self.time_since_resampling += 1
             self.resampled = False
 
         self.last_time = time
 
         for i, p in enumerate(self.particles):
-            weights_update = p.update(spatial_measurement, feature_measurement, time)
+            weights_update = p.update(spatial_measurement, feature_measurement, time, observation_id)
             print "Updating particle", i, " with weight: ", weights_update
             self.weights[i] *= weights_update
         self.weights = 1./np.sum(self.weights)*self.weights
@@ -230,15 +278,21 @@ class RBPFMTTFilter(object):
         print self.last_time
         print time
 
+    def negative_update(self, spatial_measurement, observation_id):
 
+        for i, p in enumerate(self.particles):
+            weights_update = p.negative_update(spatial_measurement, observation_id)
+            print "Negative updating particle", i, " with weight: ", weights_update
+            self.weights[i] *= weights_update
+        self.weights = 1./np.sum(self.weights)*self.weights
 
-    def update(self, spatial_measurements, feature_measurements, time=0.0):
+    def update(self, spatial_measurements, feature_measurements, time, observation_id):
 
         self.last_time += 1
 
         for m in range(0, spatial_measurements.shape[0]):
             for i, p in enumerate(self.particles):
-                self.weights[i] *= p.single_update(spatial_measurements[m], feature_measurement[m], time)
+                self.weights[i] *= p.single_update(spatial_measurements[m], feature_measurement[m], time, observation_id)
 
     def initialize_target(self, target_id, spatial_measurement, feature_measurement):
 

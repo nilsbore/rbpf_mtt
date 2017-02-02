@@ -41,6 +41,8 @@ class MeasurementVisServer(object):
         self.marker_server = InteractiveMarkerServer("object_interactive_markers")
         #self.room_server = InteractiveMarkerServer("room_interactive_markers")
         self.marker_poses = [Pose() for j in range(0, self.nbr_targets)]
+        self.previous_poses = [Pose() for j in range(0, self.nbr_targets)]
+        self.did_move = np.zeros((self.nbr_targets,), dtype=bool)
         self.marker_times = np.zeros((self.nbr_targets,), dtype=np.int64)
 
         self.regions, self.centers = get_regions()
@@ -53,6 +55,7 @@ class MeasurementVisServer(object):
         #self.clear_markers()
 
         self.timestep = 0
+        self.measurement_counter = 0
 
         #rospy.Timer(rospy.Duration(0.1), callback=self.maybe_publish_poses)
         rospy.Timer(rospy.Duration(0.1), callback=self.maybe_publish_rooms)
@@ -95,9 +98,30 @@ class MeasurementVisServer(object):
                 object_pos.pose = pose
                 object_pos.initialization_id = j
                 object_pos.timestep = self.timestep
+                object_pos.observation_id = self.measurement_counter
+                object_pos.negative_observation = False
+                self.measurement_counter += 1
                 self.positions_pub.publish(object_pos)
                 self.room_time = 0
                 published = True
+            if self.did_move[j]:
+                pose = [self.previous_poses[j].position.x, self.previous_poses[j].position.y]
+                if hull.find_simplex(pose) >= 0:
+                    print "Previous pose was inside, PUBLISHING!"
+                    #self.did_move[j] = False # need to fix a history?
+                    #self.previous_poses[j] = self.marker_poses[j]
+                    pose = PoseStamped()
+                    pose.header.frame_id = "map"
+                    pose.header.stamp = rospy.Time.now()
+                    pose.pose = self.previous_poses[j]
+                    object_pos = ObjectMeasurement()
+                    object_pos.pose = pose
+                    object_pos.initialization_id = j
+                    object_pos.timestep = self.timestep
+                    object_pos.observation_id = self.measurement_counter
+                    object_pos.negative_observation = True
+                    self.positions_pub.publish(object_pos)
+                    published = True
 
         if published:
             self.timestep = self.timestep + 1
@@ -111,15 +135,19 @@ class MeasurementVisServer(object):
             #if mtime != 0:
             #    print "Time diff for ", j , " is: ", mtime - seconds
             if mtime != 0 and seconds - mtime > 1:
-                pose = PoseStamped()
-                pose.header.frame_id = "map"
-                pose.header.stamp = rospy.Time.now()
-                pose.pose = self.marker_poses[j]
-                object_pos = ObjectMeasurement()
-                object_pos.pose = pose
-                object_pos.initialization_id = j
-                self.positions_pub.publish(object_pos)
+                self.did_move[j] = True
                 self.marker_times[j] = 0
+                #pose = PoseStamped()
+                #pose.header.frame_id = "map"
+                #pose.header.stamp = rospy.Time.now()
+                #pose.pose = self.marker_poses[j]
+                #object_pos = ObjectMeasurement()
+                #object_pos.pose = pose
+                #object_pos.initialization_id = j
+                #object_pos.observation_id = self.measurement_counter
+                #self.measurement_counter += 1
+                #self.positions_pub.publish(object_pos)
+                #self.marker_times[j] = 0
 
     def object_id_color(self, object_id):
 
@@ -273,6 +301,7 @@ class MeasurementVisServer(object):
         marker.controls.append(control)
 
         self.marker_poses[object_id] = pose
+        self.previous_poses[object_id] = pose
         self.marker_server.insert(marker, self.marker_feedback)
         self.marker_server.applyChanges()
         pose.position.z = 0.15
@@ -346,7 +375,10 @@ class MeasurementVisServer(object):
         text_marker.color.r = 0.
         text_marker.color.g = 0.
         text_marker.color.b = 0.
-        text_marker.text = str(self.object_counters[clicked_pose.initialization_id])
+        if clicked_pose.negative_observation:
+            text_marker.text = "Negative " + str(self.object_counters[clicked_pose.initialization_id])
+        else:
+            text_marker.text = str(self.object_counters[clicked_pose.initialization_id])
         #text_marker.lifetime = rospy.Time(secs=1000)
 
         self.object_counters[clicked_pose.initialization_id] += 1

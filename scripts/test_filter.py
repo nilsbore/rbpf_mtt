@@ -46,7 +46,10 @@ class FilterServer(object):
                 print "All targets have not been initialized, not updating..."
                 return
             print "Intialized, adding measurement..."
-            self.filter.single_update(spatial_measurement, feature_measurement, pose.timestep)
+            if pose.negative_observation:
+                self.filter.negative_update(spatial_measurement, pose.observation_id)
+            else:
+                self.filter.single_update(spatial_measurement, feature_measurement, pose.timestep, pose.observation_id)
 
         self.publish_marginals(self.filter)
 
