@@ -89,6 +89,8 @@ class RBPFMParticle(object):
         pot_fP = np.zeros((nbr_targets, feature_dim, feature_dim))
         likelihoods = np.zeros(nbr_targets+1,)
 
+        spatial_likelihoods = np.zeros((nbr_targets,))
+        feature_likelihoods = np.zeros((nbr_targets,))
         for j in range(0, nbr_targets):
 
             #
@@ -125,8 +127,11 @@ class RBPFMParticle(object):
             pot_sP[j] = np.dot((np.identity(spatial_dim) - sK), self.sP[j])
             pot_fP[j] = np.dot((np.identity(feature_dim) - fK), self.fP[j])
 
-            likelihoods[j] = gauss_pdf(spatial_measurement, self.sm[j], sS) * \
-                             gauss_pdf(feature_measurement, self.fm[j], fS)
+            spatial_likelihoods[j] = gauss_pdf(spatial_measurement, self.sm[j], sS)
+            feature_likelihoods[j] = gauss_pdf(feature_measurement, self.fm[j], fS)
+            #likelihoods[j] = gauss_pdf(spatial_measurement, self.sm[j], sS) * \
+            #                 gauss_pdf(feature_measurement, self.fm[j], fS)
+        likelihoods[:nbr_targets] = spatial_likelihoods*feature_likelihoods
         likelihoods[nbr_targets] = pdclutter
         #likelihoods = 1./np.sum(likelihoods)*likelihoods
 
@@ -198,8 +203,8 @@ class RBPFMParticle(object):
             #we don't really care if it was associated with noise
 
         elif i == nbr_targets+1:
-            l = likelihoods[:nbr_targets]/np.sum(likelihoods[:nbr_targets])
-            i = np.random.choice(nbr_targets, p=l)
+            feature_likelihoods = feature_likelihoods/np.sum(feature_likelihoods)
+            i = np.random.choice(nbr_targets, p=feature_likelihoods)
             self.sm[i] = spatial_measurement
             self.sP[i] = 1.0*np.eye(len(spatial_measurement))
         else:
@@ -271,7 +276,7 @@ class RBPFMTTFilter(object):
 
         for i, p in enumerate(self.particles):
             weights_update = p.update(spatial_measurement, feature_measurement, time, observation_id)
-            print "Updating particle", i, " with weight: ", weights_update
+            print "Updating particle", i, " with weight: ", weights_update, ", particle weight: ", self.weights[i]
             self.weights[i] *= weights_update
         self.weights = 1./np.sum(self.weights)*self.weights
 
