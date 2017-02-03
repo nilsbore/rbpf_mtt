@@ -135,22 +135,6 @@ class RBPFMParticle(object):
         likelihoods[nbr_targets] = pdclutter
         #likelihoods = 1./np.sum(likelihoods)*likelihoods
 
-        # optimally, we should jump somewhere if an object
-        # does not have any measurement and there exists a
-        # measurement with poor explanation.
-
-
-        # Note: only one object can jump to a new location
-        # (per measurement)
-        # jumped = (1.-likelihoods/np.sum(likelihoods))*pjump
-        # for picked in self.c:
-        #     jumped[picked] = 0
-        # jumped[-1] = 1.-pjump
-        # jumped = 1./np.sum(jumped)*jumped
-        # i = np.random.choice(nbr_targets+1, p=jumped)
-        # if i < nbr_targets:
-        #     self.sm[i] = np.random.multivariate_normal(spatial_measurement, sR)
-
         # Optimal importance functions for target
         # and clutter associations (i) for each particles (j)
         #
@@ -283,22 +267,6 @@ class RBPFMTTFilter(object):
         print self.last_time
         print time
 
-    def negative_update(self, spatial_measurement, observation_id):
-
-        for i, p in enumerate(self.particles):
-            weights_update = p.negative_update(spatial_measurement, observation_id)
-            print "Negative updating particle", i, " with weight: ", weights_update
-            self.weights[i] *= weights_update
-        self.weights = 1./np.sum(self.weights)*self.weights
-
-    def update(self, spatial_measurements, feature_measurements, time, observation_id):
-
-        self.last_time += 1
-
-        for m in range(0, spatial_measurements.shape[0]):
-            for i, p in enumerate(self.particles):
-                self.weights[i] *= p.single_update(spatial_measurements[m], feature_measurement[m], time, observation_id)
-
     def initialize_target(self, target_id, spatial_measurement, feature_measurement):
 
         for i, p in enumerate(self.particles):
@@ -306,8 +274,3 @@ class RBPFMTTFilter(object):
             p.fm[target_id] = feature_measurement
             p.sP[target_id] = 1.0*np.eye(self.dim)
             p.fP[target_id] = 1.0*np.eye(self.feature_dim)
-
-
-    #def estimate(self):
-
-        # what do we want to estimate? basically just a list of objects
