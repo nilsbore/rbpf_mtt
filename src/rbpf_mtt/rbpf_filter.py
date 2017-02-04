@@ -127,6 +127,7 @@ class RBPFMParticle(object):
             pot_sP[j] = np.dot((np.identity(spatial_dim) - sK), self.sP[j])
             pot_fP[j] = np.dot((np.identity(feature_dim) - fK), self.fP[j])
 
+            # TODO: wait 1s, didn't they write that this should be pot_sm[j]?
             spatial_likelihoods[j] = gauss_pdf(spatial_measurement, self.sm[j], sS)
             feature_likelihoods[j] = gauss_pdf(feature_measurement, self.fm[j], fS)
             #likelihoods[j] = gauss_pdf(spatial_measurement, self.sm[j], sS) * \
