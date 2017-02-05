@@ -4,6 +4,7 @@ import numpy as np
 import rospy
 from rbpf_mtt.msg import GMMPoses, ObjectMeasurement
 from rbpf_mtt.rbpf_filter import RBPFMTTFilter
+from rbpf_mtt.rbpf_vis import filter_to_gmms
 from geometry_msgs.msg import PoseWithCovariance
 from visualization_msgs.msg import Marker, MarkerArray
 
@@ -20,6 +21,7 @@ class FilterServer(object):
         self.initialized = np.zeros((self.nbr_targets,), dtype=bool)
 
         rospy.Subscriber("filter_measurements", ObjectMeasurement, self.callback)
+        rospy.Subscriber("sim_filter_measurements", ObjectMeasurement, self.callback)
 
     # here we got a measurement, with pose and feature, time is in the pose header
     def callback(self, pose):
@@ -56,27 +58,9 @@ class FilterServer(object):
 
     def publish_marginals(self, rbpfilter):
 
-        for j in range(0, rbpfilter.nbr_targets):
-            if not self.initialized[j]:
-                continue
-            poses = GMMPoses()
-            poses.id = j
-            for i in range(0, rbpfilter.nbr_particles):
-                poses.weights.append(rbpfilter.weights[i])
-                m = rbpfilter.particles[i].sm[j]
-                P = rbpfilter.particles[i].sP[j]
-                pose = PoseWithCovariance()
-                pose.pose.position.x = m[0]
-                pose.pose.position.y = m[1]
-                pose.pose.position.z = 0.
-                # covariance is row-major
-                pose.covariance[0] = P[0, 0]
-                pose.covariance[1] = P[0, 1]
-                pose.covariance[6] = P[1, 0]
-                pose.covariance[7] = P[1, 1]
-                poses.modes.append(pose)
-
-            self.gmm_pub.publish(poses)
+        gmms = filter_to_gmms(rbpfilter, self.initialized)
+        for gmm in gmms:
+            self.gmm_pub.publish(gmm)
 
     # This should just publish a posearray, which can be displayed directly
     # But how do we know which pose is which? Maybe it would make more

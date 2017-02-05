@@ -4,7 +4,7 @@ import numpy as np
 import rospy
 from rbpf_mtt.msg import GMMPoses, ObjectMeasurement
 #from rbpf_mtt.rbpf_filter import RBPFMTTFilter
-from geometry_msgs.msg import Pose, PoseStamped, PoseWithCovariance
+from geometry_msgs.msg import Pose, PoseArray, PoseStamped, PoseWithCovariance
 from visualization_msgs.msg import Marker, MarkerArray, InteractiveMarker, InteractiveMarkerControl
 from interactive_markers.interactive_marker_server import InteractiveMarkerServer
 from mongodb_store.message_store import MessageStoreProxy
@@ -31,6 +31,7 @@ class MeasurementVisServer(object):
 
         self.marker_pub = rospy.Publisher('measurement_markers', MarkerArray, queue_size=10)
         self.positions_pub = rospy.Publisher('object_positions', ObjectMeasurement, queue_size=10)
+        self.target_pub = rospy.Publisher('get_target_poses', PoseArray, queue_size=10)
         #self.object_pub = rospy.Publisher('measurement_markers', MarkerArray, queue_size=10)'
 
         self.nbr_targets = self.nbr_targets = rospy.get_param('~number_targets', 2)
@@ -60,10 +61,28 @@ class MeasurementVisServer(object):
         #rospy.Timer(rospy.Duration(0.1), callback=self.maybe_publish_poses)
         rospy.Timer(rospy.Duration(0.1), callback=self.maybe_publish_rooms)
         rospy.Subscriber("filter_measurements", ObjectMeasurement, self.callback)
+        rospy.Subscriber("sim_filter_measurements", ObjectMeasurement, self.callback)
+        rospy.Subscriber("set_target_poses", PoseArray, self.set_target_poses)
 
         self.initialize_room_markers()
 
+    def set_target_poses(self, poses):
+
+        for j, p in enumerate(poses.poses):
+            name = "object_marker_" + str(j)
+            self.marker_server.setPose(name, p)
+        self.marker_server.applyChanges()
+
+    def publish_target_poses(self):
+
+        poses = PoseArray()
+        for j in range(0, self.nbr_targets):
+            poses.poses.append(self.marker_poses[j])
+        self.target_pub.publish(poses)
+
     def maybe_publish_rooms(self, event):
+
+        self.publish_target_poses()
 
         seconds = rospy.Time.now().to_sec()
         if self.room_time == 0 or seconds - self.room_time < 1:
@@ -244,7 +263,6 @@ class MeasurementVisServer(object):
             #control.always_visible = True
     #        control.name = "move_x"
     #        control.interaction_mode = InteractiveMarkerControl.MOVE_AXIS
-
 
             self.marker_server.insert(marker, self.room_feedback)
             self.marker_server.applyChanges()

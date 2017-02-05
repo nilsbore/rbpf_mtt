@@ -1,0 +1,6 @@
+string action # 'start', 'stop', 'save', 'load', 'replay', 'step'
+string observations_file
+---
+string response
+---
+string feedback
