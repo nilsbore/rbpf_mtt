@@ -1,6 +1,7 @@
 from rbpf_mtt.rbpf_filter import RBPFMTTFilter, RBPFMParticle, gauss_pdf
 import numpy as np
 import math
+import copy
 
 # because the filter doesn't save its state, we will need to delegate the
 # functions to the filter as a member
@@ -35,8 +36,9 @@ class RBPFMTTSmoother(object):
         self.feature_measurements[self.nbr_timesteps] = feature_measurement
         self.timesteps[self.nbr_timesteps] = time
         self.filter.single_update(spatial_measurement, feature_measurement, time, observation_id)
-        self.timestep_particles[self.nbr_timesteps] = self.filter.particles
-        self.timestep_weights[self.nbr_timesteps] = self.filter.weights
+        #self.timestep_particles[self.nbr_timesteps] = copy.deepcopy(self.filter.particles)
+        self.timestep_particles[self.nbr_timesteps] = list(self.filter.particles)
+        self.timestep_weights[self.nbr_timesteps] = np.array(self.filter.weights)
         self.nbr_timesteps += 1
 
     def predict(self):
@@ -49,7 +51,8 @@ class RBPFMTTSmoother(object):
         self.feature_measurements[self.nbr_timesteps] = feature_measurement
         self.timesteps[self.nbr_timesteps] = time
         self.filter.initialize_target(target_id, spatial_measurement, feature_measurement)
-        self.timestep_particles[self.nbr_timesteps] = self.filter.particles
+        #self.timestep_particles[self.nbr_timesteps] = copy.deepcopy(self.filter.particles)
+        self.timestep_particles[self.nbr_timesteps] = list(self.filter.particles)
         self.timestep_weights[self.nbr_timesteps] = self.filter.weights
         self.nbr_timesteps += 1
 
@@ -73,6 +76,8 @@ class RBPFMTTSmoother(object):
         fQ = np.identity(feature_dim) # process noise
 
         for s in range(0, self.nbr_backward_sims):
+
+            print "Running backward simulation: ", s
 
             # sample the latent state with probability of the last weights
             # weights are always normalized in the update equation

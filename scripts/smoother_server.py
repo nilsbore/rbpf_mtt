@@ -9,6 +9,7 @@ from rbpf_mtt.rbpf_filter import RBPFMTTFilter
 from geometry_msgs.msg import PoseWithCovariance, Pose, PoseArray
 from std_msgs.msg import Empty
 from std_srvs.srv import Empty as EmptySrv
+from std_msgs.msg import Int32
 from visualization_msgs.msg import Marker, MarkerArray
 from rbpf_mtt.msg import ObservationDBAction, ObservationDBGoal, ObservationDBResult, ObservationDBFeedback
 import os
@@ -49,6 +50,7 @@ class SmootherServer(object):
         #self.gmm_pub = rospy.Publisher('filter_gmms', GMMPoses, queue_size=10)
         self.poses_pub = rospy.Publisher('set_target_poses', PoseArray, queue_size=10)
         self.obs_pub = rospy.Publisher('sim_filter_measurements', ObjectMeasurement, queue_size=10)
+        self.smooth_pub = rospy.Publisher('smoother_vis', Int32, queue_size=10)
 
         #self.initialized = np.zeros((self.nbr_targets,), dtype=bool)
 
@@ -56,6 +58,7 @@ class SmootherServer(object):
         self.iteration = 0
         self.is_through = False
         self.autostep = False
+        self.is_smoothed = False
         rospy.Subscriber("filter_measurements", ObjectMeasurement, self.obs_callback)
         rospy.Subscriber("get_target_poses", PoseArray, self.poses_callback)
 
@@ -77,6 +80,7 @@ class SmootherServer(object):
         #SmootherServer._result.success = True
 
         if goal.action == 'record':
+            self.is_smoothed = False
             self.is_playing = False
             self.autostep = False
             self.iteration = 0
@@ -84,6 +88,7 @@ class SmootherServer(object):
             self.save_observation_sequence(goal.observations_file)
         elif goal.action == 'load':
             self.load_observation_sequence(goal.observations_file)
+            self.is_smoothed = False
             self.is_through = False
             self.is_playing = True
             self.iteration = 0
@@ -113,6 +118,10 @@ class SmootherServer(object):
                 SmootherServer._result.response = "Is smoothing server running?"
                 print "Service call failed: %s"%e
             #self._as.action_server.publish_feedback()
+            self.is_smoothed = True
+            self.is_through = False
+            self.iteration = 4
+            self.is_playing = True
         else:
             SmootherServer._result.response = "Valid actions are: 'record', 'save', 'load', 'replay', 'step', 'autostep'"
             #SmootherServer._result.success = False
@@ -138,6 +147,11 @@ class SmootherServer(object):
             SmootherServer._result.response = "Done playing back, no more measurements!"
             self.is_through = True
             #SmootherServer._result.success = False
+            return
+
+        if self.is_smoothed:
+            self.smooth_pub.publish(self.iteration)
+            self.iteration += 1
             return
 
         first_timestep = self.timesteps[self.iteration]
