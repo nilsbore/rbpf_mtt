@@ -7,6 +7,7 @@
 #include <eigen3/Eigen/Dense>
 #include <std_msgs/Empty.h>
 #include <rbpf_mtt/PublishGMMMap.h>
+#include <rbpf_mtt/PublishGMMMaps.h>
 
 using namespace std;
 
@@ -49,6 +50,7 @@ public:
     ros::NodeHandle n;
     ros::Subscriber sub;
     ros::ServiceServer service;
+    ros::ServiceServer multi_service;
     int nbr_targets;
     //vector<ros::Publisher> pubs;
     nav_msgs::OccupancyGrid map;
@@ -110,6 +112,7 @@ public:
 
         sub = n.subscribe("filter_gmms", 1, &GMMMapServer::callback, this);
         service = n.advertiseService("publish_gmm_map", &GMMMapServer::service_callback, this);//bpf_mtt::PublishGMMMap);
+        multi_service = n.advertiseService("publish_gmm_maps", &GMMMapServer::multi_service_callback, this);
     }
 
     /*
@@ -123,6 +126,9 @@ public:
     {
         //costmap_2d::Costmap2D costmap(map_width, map_height, map_res, map_origin_x, map_origin_y);
         ROS_INFO("Got message callback!");
+        /*if (!costmap_publishers[dist.id]->active()) {
+            return;
+        }*/
 
         Eigen::MatrixXd prob_accum = Eigen::MatrixXd::Zero(map_height, map_width);
 
@@ -203,17 +209,32 @@ public:
 
         //cmp.publishCostmap();
         //pubs[dist.id].publish();
-        costmap_publishers[dist.id]->publishCostmap();
+
     }
 
     void callback(const rbpf_mtt::GMMPoses::ConstPtr& dist)
     {
         publish_map(*dist);
+        costmap_publishers[dist->id]->publishCostmap();
     }
 
-    bool service_callback(rbpf_mtt::PublishGMMMap::Request& req, rbpf_mtt::PublishGMMMapResponse& res)
+    bool service_callback(rbpf_mtt::PublishGMMMap::Request& req, rbpf_mtt::PublishGMMMap::Response& res)
     {
         publish_map(req.gmm);
+        costmap_publishers[req.gmm.id]->publishCostmap();
+        return true;
+    }
+
+    bool multi_service_callback(rbpf_mtt::PublishGMMMaps::Request& req, rbpf_mtt::PublishGMMMaps::Response& res)
+    {
+        #pragma omp parallel for
+        for (size_t i = 0; i < req.gmms.size(); ++i) {
+            publish_map(req.gmms[i]);
+        }
+
+        for (size_t i = 0; i < req.gmms.size(); ++i) {
+            costmap_publishers[req.gmms[i].id]->publishCostmap();
+        }
         return true;
     }
 

@@ -3,7 +3,7 @@
 import numpy as np
 import rospy
 from rbpf_mtt.msg import GMMPoses, ObjectMeasurement
-from rbpf_mtt.srv import PublishGMMMap
+from rbpf_mtt.srv import PublishGMMMap, PublishGMMMaps
 from rbpf_mtt.rbpf_filter import RBPFMTTFilter
 from rbpf_mtt.rbpf_vis import filter_to_gmms
 from geometry_msgs.msg import PoseWithCovariance
@@ -57,8 +57,9 @@ class FilterServer(object):
             #    self.filter.single_update(spatial_measurement, feature_measurement, pose.timestep, pose.observation_id)
             self.filter.single_update(spatial_measurement, feature_measurement, pose.timestep, pose.observation_id)
 
-        self.visualize_marginals(self.filter)
-        self.publish_marginals(self.filter)
+        #self.visualize_marginals(self.filter)
+        #self.publish_marginals(self.filter)
+        self.par_visualize_marginals(self.filter)
         e = Empty()
         self.ready_pub.publish(e)
 
@@ -78,6 +79,17 @@ class FilterServer(object):
                 publish_map(gmm)
             except rospy.ServiceException, e:
                 print "Service call failed: %s"%e
+
+    def par_visualize_marginals(self, rbpfilter):
+
+        #gmms = PublishGMMMaps()
+        gmms = filter_to_gmms(rbpfilter, self.initialized)
+        rospy.wait_for_service('publish_gmm_maps')
+        try:
+            publish_maps = rospy.ServiceProxy('publish_gmm_maps', PublishGMMMaps)
+            publish_maps(gmms)
+        except rospy.ServiceException, e:
+            print "Service call failed: %s"%e
 
     # This should just publish a posearray, which can be displayed directly
     # But how do we know which pose is which? Maybe it would make more
