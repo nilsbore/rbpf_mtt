@@ -5,6 +5,8 @@
 #include <costmap_2d/costmap_2d_publisher.h>
 #include <cmath>
 #include <eigen3/Eigen/Dense>
+#include <std_msgs/Empty.h>
+#include <rbpf_mtt/PublishGMMMap.h>
 
 using namespace std;
 
@@ -46,11 +48,13 @@ public:
 
     ros::NodeHandle n;
     ros::Subscriber sub;
+    ros::ServiceServer service;
     int nbr_targets;
     //vector<ros::Publisher> pubs;
     nav_msgs::OccupancyGrid map;
     vector<costmap_2d::Costmap2D> costmaps;
     vector<costmap_2d::Costmap2DPublisher*> costmap_publishers;
+    ros::Publisher ready_pub;
 
     double map_height;
     double map_width;
@@ -69,6 +73,8 @@ public:
             pubs[j] = n.advertise<nav_msgs::OccupancyGrid>(string("object_probabilities_") + to_string(j), 1, true); // latching
         }
         */
+
+        ready_pub = n.advertise<std_msgs::Empty>("map_ready", 1);
 
         nav_msgs::OccupancyGrid::ConstPtr global_costmap_msg = ros::topic::waitForMessage<nav_msgs::OccupancyGrid>("/map", n, ros::Duration(5));
         if (!global_costmap_msg) {
@@ -103,6 +109,7 @@ public:
         ROS_INFO("DONE INITIALIZING COSTMAPS");
 
         sub = n.subscribe("filter_gmms", 1, &GMMMapServer::callback, this);
+        service = n.advertiseService("publish_gmm_map", &GMMMapServer::service_callback, this);//bpf_mtt::PublishGMMMap);
     }
 
     /*
@@ -112,7 +119,7 @@ public:
     }
     */
 
-    void callback(const rbpf_mtt::GMMPoses::ConstPtr& dist)
+    void publish_map(const rbpf_mtt::GMMPoses& dist)
     {
         //costmap_2d::Costmap2D costmap(map_width, map_height, map_res, map_origin_x, map_origin_y);
         ROS_INFO("Got message callback!");
@@ -120,20 +127,20 @@ public:
         Eigen::MatrixXd prob_accum = Eigen::MatrixXd::Zero(map_height, map_width);
 
         int map_x, map_y;
-        for (size_t i = 0; i < dist->modes.size(); ++i) {
+        for (size_t i = 0; i < dist.modes.size(); ++i) {
 
             Eigen::Matrix2d P;
-            P << dist->modes[i].covariance[0], dist->modes[i].covariance[1],
-                 dist->modes[i].covariance[6], dist->modes[i].covariance[7];
+            P << dist.modes[i].covariance[0], dist.modes[i].covariance[1],
+                 dist.modes[i].covariance[6], dist.modes[i].covariance[7];
 
             double xstd = sqrt(P.col(0).norm());
             double ystd = sqrt(P.col(1).norm());
 
             double quantile = 2.0*NormalCDFInverse(0.95);
-            double xmax = dist->modes[i].pose.position.x + quantile*xstd;
-            double xmin = dist->modes[i].pose.position.x - quantile*xstd;
-            double ymax = dist->modes[i].pose.position.y + quantile*ystd;
-            double ymin = dist->modes[i].pose.position.y - quantile*ystd;
+            double xmax = dist.modes[i].pose.position.x + quantile*xstd;
+            double xmin = dist.modes[i].pose.position.x - quantile*xstd;
+            double ymax = dist.modes[i].pose.position.y + quantile*ystd;
+            double ymin = dist.modes[i].pose.position.y - quantile*ystd;
 
             //ROS_INFO_STREAM("res: " << map_res << ", xmax: " << xmax << ", xmin: " << xmin << ", ymax: " << ymax << ", ymin: " << ymin);
 
@@ -152,9 +159,9 @@ public:
             for (double y = ymin; y < ymax; y += map_res) {
                 for (double x = xmin; x < xmax; x += map_res) {
                     Eigen::Vector2d v;
-                    v << x - dist->modes[i].pose.position.x, y - dist->modes[i].pose.position.y;
-                    costmaps[dist->id].worldToMapEnforceBounds(x, y, map_x, map_y);
-                    if (map.data[costmaps[dist->id].getIndex(map_x, map_y)] != 0) {
+                    v << x - dist.modes[i].pose.position.x, y - dist.modes[i].pose.position.y;
+                    costmaps[dist.id].worldToMapEnforceBounds(x, y, map_x, map_y);
+                    if (map.data[costmaps[dist.id].getIndex(map_x, map_y)] != 0) {
                         prob_accum(map_x, map_y) = 0.0;
                         continue;
                     }
@@ -185,18 +192,29 @@ public:
         for (int i = 0; i < map_height; i++) {
             for (int j = 0; j < map_width; j++) {
                 //costmap.setCost(i, j, uint8_t(prob_accum(i, j)));
-                costmaps[dist->id].setCost(i, j, uint8_t(prob_accum(i, j)));
+                costmaps[dist.id].setCost(i, j, uint8_t(prob_accum(i, j)));
             }
         }
 
         ROS_INFO("Done inserting the accumulated map...");
 
-        //string topic_name = string("object_probabilities_") + to_string(dist->id);
+        //string topic_name = string("object_probabilities_") + to_string(dist.id);
         //costmap_2d::Costmap2DPublisher cmp(&n, &costmap, "/map", topic_name, true);
 
         //cmp.publishCostmap();
-        //pubs[dist->id].publish();
-        costmap_publishers[dist->id]->publishCostmap();
+        //pubs[dist.id].publish();
+        costmap_publishers[dist.id]->publishCostmap();
+    }
+
+    void callback(const rbpf_mtt::GMMPoses::ConstPtr& dist)
+    {
+        publish_map(*dist);
+    }
+
+    bool service_callback(rbpf_mtt::PublishGMMMap::Request& req, rbpf_mtt::PublishGMMMapResponse& res)
+    {
+        publish_map(req.gmm);
+        return true;
     }
 
 };

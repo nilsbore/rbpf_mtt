@@ -7,6 +7,7 @@ from rbpf_mtt.msg import GMMPoses, ObjectMeasurement
 from rbpf_mtt.rbpf_filter import RBPFMTTFilter
 #from rbpf_mtt.rbpf_smoother import RBPFMTTSmoother
 from geometry_msgs.msg import PoseWithCovariance, Pose, PoseArray
+from std_msgs.msg import Empty
 from visualization_msgs.msg import Marker, MarkerArray
 from rbpf_mtt.msg import ObservationDBAction, ObservationDBGoal, ObservationDBResult, ObservationDBFeedback
 import os
@@ -20,6 +21,7 @@ class SmootherServer(object):
 
         self.nbr_targets = rospy.get_param('~number_targets', 2)
         self.feature_dim = rospy.get_param('~feature_dim', 2)
+        self.step_by_timestep = rospy.get_param('~step_by_timestep', True)
 
         max_iterations = 1000
 
@@ -51,8 +53,13 @@ class SmootherServer(object):
 
         self.is_playing = False
         self.iteration = 0
+        self.is_through = False
+        self.autostep = False
         rospy.Subscriber("filter_measurements", ObjectMeasurement, self.obs_callback)
         rospy.Subscriber("get_target_poses", PoseArray, self.poses_callback)
+
+        # TEMP
+        rospy.Subscriber("filter_ready", Empty, self.step_callback)
 
         self._action_name = "/observation_db"
         rospy.loginfo("Creating action server...")
@@ -70,6 +77,7 @@ class SmootherServer(object):
 
         if goal.action == 'start':
             self.is_playing = False
+            self.autostep = False
             self.iteration = 0
         elif goal.action == 'stop':
             pass
@@ -77,17 +85,38 @@ class SmootherServer(object):
             self.save_observation_sequence(goal.observations_file)
         elif goal.action == 'load':
             self.load_observation_sequence(goal.observations_file)
+            self.is_through = False
+            self.is_playing = True
             self.iteration = 0
         elif goal.action == 'replay':
             self.is_playing = True
             self.iteration = 0
         elif goal.action == 'step':
+            self.autostep = False
             self.step()
+        elif goal.action == 'autostep':
+            #rospy.Subscriber("filter_ready", Empty, self.step_callback)
+            SmootherServer._result.response = "Playing back!"
+            self.autostep = True
+            self.step()
+            #r = rospy.Rate(10.)
+            #while not rospy.is_shutdown():
+            #    r.sleep()
+            #    if self.is_through:
+            #        break
         else:
             SmootherServer._result.response = "Valid actions are: 'start', 'stop', 'save', 'load', 'replay', 'step'"
             #SmootherServer._result.success = False
 
         self._as.set_succeeded(SmootherServer._result)
+
+    def step_callback(self, msg):
+
+        print "Got step callback!"
+        if not self.autostep:
+            return
+
+        self.step()
 
     def step(self):
 
@@ -95,6 +124,14 @@ class SmootherServer(object):
             SmootherServer._result.response = "Can't step if not replay..."
             #SmootherServer._result.success = False
             return
+
+        if self.iteration >= len(self.timesteps):
+            SmootherServer._result.response = "Done playing back, no more measurements!"
+            self.is_through = True
+            #SmootherServer._result.success = False
+            return
+
+        first_timestep = self.timesteps[self.iteration]
 
         poses = PoseArray()
         poses.header.frame_id = 'map'
@@ -106,18 +143,24 @@ class SmootherServer(object):
 
         self.poses_pub.publish(poses)
 
-        obs = ObjectMeasurement()
-        for i in range(0, self.feature_dim):
-            obs.feature.append(self.feature_measurements[self.iteration, i])
-        obs.pose.pose.position.x = self.spatial_measurements[self.iteration, 0]
-        obs.pose.pose.position.y = self.spatial_measurements[self.iteration, 1]
-        obs.initialization_id = self.target_ids[self.iteration]
-        obs.observation_id = self.observation_ids[self.iteration]
-        obs.timestep = self.timesteps[self.iteration]
+        while True:
 
-        self.obs_pub.publish(obs)
+            obs = ObjectMeasurement()
+            for i in range(0, self.feature_dim):
+                obs.feature.append(self.feature_measurements[self.iteration, i])
+            obs.pose.pose.position.x = self.spatial_measurements[self.iteration, 0]
+            obs.pose.pose.position.y = self.spatial_measurements[self.iteration, 1]
+            obs.initialization_id = self.target_ids[self.iteration]
+            obs.observation_id = self.observation_ids[self.iteration]
+            obs.timestep = self.timesteps[self.iteration]
 
-        self.iteration += 1
+            self.obs_pub.publish(obs)
+
+            self.iteration += 1
+
+            if not self.step_by_timestep or self.iteration >= len(self.timesteps) \
+               or self.timesteps[self.iteration] != first_timestep:
+               break
 
 
     def save_observation_sequence(self, observations_file):

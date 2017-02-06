@@ -7,6 +7,7 @@
     <arg name="config" default="moving_objects"/>
     <arg name="db_name" default="somadata"/>
     <arg name="feature_dim" default="4"/>
+    <arg name="step_by_timestep" default="true"/>
 
     <include file="$(find mongodb_store)/launch/mongodb_store.launch">
         <arg name="db_path" value="$(arg db_path)"/>
@@ -24,6 +25,7 @@
     <node pkg="rbpf_mtt" type="test_smoother.py" name="test_smoother" output="screen" respawn="true" unless="$(arg test)">
         <param name="number_targets" value="$(arg number_targets)"/>
         <param name="feature_dim" value="$(arg feature_dim)"/>
+        <param name="step_by_timestep" value="$(arg step_by_timestep)"/>
     </node>
 
     <node pkg="rbpf_mtt" type="measurement_simulator" name="measurement_simulator" output="screen" respawn="true">

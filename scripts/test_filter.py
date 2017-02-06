@@ -3,10 +3,12 @@
 import numpy as np
 import rospy
 from rbpf_mtt.msg import GMMPoses, ObjectMeasurement
+from rbpf_mtt.srv import PublishGMMMap
 from rbpf_mtt.rbpf_filter import RBPFMTTFilter
 from rbpf_mtt.rbpf_vis import filter_to_gmms
 from geometry_msgs.msg import PoseWithCovariance
 from visualization_msgs.msg import Marker, MarkerArray
+from std_msgs.msg import Empty
 
 class FilterServer(object):
 
@@ -14,6 +16,7 @@ class FilterServer(object):
 
         self.gmm_pub = rospy.Publisher('filter_gmms', GMMPoses, queue_size=10)
         self.poses_pub = rospy.Publisher('filter_poses', MarkerArray, queue_size=10)
+        self.ready_pub = rospy.Publisher('filter_ready', Empty, queue_size=10)
 
         self.nbr_targets = rospy.get_param('~number_targets', 2)
 
@@ -54,13 +57,27 @@ class FilterServer(object):
             #    self.filter.single_update(spatial_measurement, feature_measurement, pose.timestep, pose.observation_id)
             self.filter.single_update(spatial_measurement, feature_measurement, pose.timestep, pose.observation_id)
 
+        self.visualize_marginals(self.filter)
         self.publish_marginals(self.filter)
+        e = Empty()
+        self.ready_pub.publish(e)
 
     def publish_marginals(self, rbpfilter):
 
         gmms = filter_to_gmms(rbpfilter, self.initialized)
         for gmm in gmms:
             self.gmm_pub.publish(gmm)
+
+    def visualize_marginals(self, rbpfilter):
+
+        gmms = filter_to_gmms(rbpfilter, self.initialized)
+        rospy.wait_for_service('publish_gmm_map')
+        for gmm in gmms:
+            try:
+                publish_map = rospy.ServiceProxy('publish_gmm_map', PublishGMMMap)
+                publish_map(gmm)
+            except rospy.ServiceException, e:
+                print "Service call failed: %s"%e
 
     # This should just publish a posearray, which can be displayed directly
     # But how do we know which pose is which? Maybe it would make more
