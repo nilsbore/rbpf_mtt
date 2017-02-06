@@ -75,12 +75,10 @@ class SmootherServer(object):
         SmootherServer._result.response = "Success!"
         #SmootherServer._result.success = True
 
-        if goal.action == 'start':
+        if goal.action == 'record':
             self.is_playing = False
             self.autostep = False
             self.iteration = 0
-        elif goal.action == 'stop':
-            pass
         elif goal.action == 'save':
             self.save_observation_sequence(goal.observations_file)
         elif goal.action == 'load':
@@ -105,7 +103,7 @@ class SmootherServer(object):
             #    if self.is_through:
             #        break
         else:
-            SmootherServer._result.response = "Valid actions are: 'start', 'stop', 'save', 'load', 'replay', 'step'"
+            SmootherServer._result.response = "Valid actions are: 'record', 'save', 'load', 'replay', 'step', 'autostep'"
             #SmootherServer._result.success = False
 
         self._as.set_succeeded(SmootherServer._result)

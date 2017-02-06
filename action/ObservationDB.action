@@ -1,4 +1,4 @@
-string action # 'start', 'stop', 'save', 'load', 'replay', 'step'
+string action # 'record', 'save', 'load', 'replay', 'step', 'autostep'
 string observations_file
 ---
 string response
