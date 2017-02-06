@@ -2,240 +2,93 @@
 
 import numpy as np
 import rospy
-import actionlib
 from rbpf_mtt.msg import GMMPoses, ObjectMeasurement
+from rbpf_mtt.srv import PublishGMMMap, PublishGMMMaps
 from rbpf_mtt.rbpf_filter import RBPFMTTFilter
-#from rbpf_mtt.rbpf_smoother import RBPFMTTSmoother
-from geometry_msgs.msg import PoseWithCovariance, Pose, PoseArray
-from std_msgs.msg import Empty
+from rbpf_mtt.rbpf_smoother import RBPFMTTSmoother
+from rbpf_mtt.rbpf_vis import filter_to_gmms
+from geometry_msgs.msg import PoseWithCovariance
 from visualization_msgs.msg import Marker, MarkerArray
-from rbpf_mtt.msg import ObservationDBAction, ObservationDBGoal, ObservationDBResult, ObservationDBFeedback
-import os
+from std_msgs.msg import Empty
+from std_srvs.srv import Empty as EmptySrv
 
-class SmootherServer(object):
-
-    _feedback = ObservationDBFeedback()
-    _result   = ObservationDBResult()
+class SmootherNode(object):
 
     def __init__(self):
 
+        self.gmm_pub = rospy.Publisher('filter_gmms', GMMPoses, queue_size=10)
+        #self.poses_pub = rospy.Publisher('filter_poses', MarkerArray, queue_size=10)
+        self.ready_pub = rospy.Publisher('filter_ready', Empty, queue_size=10)
+
         self.nbr_targets = rospy.get_param('~number_targets', 2)
-        self.feature_dim = rospy.get_param('~feature_dim', 2)
-        self.step_by_timestep = rospy.get_param('~step_by_timestep', True)
 
-        max_iterations = 1000
+        self.smoother = RBPFMTTSmoother(self.nbr_targets, 100, 4, 200)
+        self.initialized = np.zeros((self.nbr_targets,), dtype=bool)
 
-        # N x 2 dimensions
-        self.spatial_measurements = np.zeros((max_iterations, 2)) # can use the numpy library to save this
-        # N x f dimensions
-        self.feature_measurements = np.zeros((max_iterations, self.feature_dim)) # can use the numpy library to save this
-        # N dimensions
-        self.timesteps = np.zeros((max_iterations,), dtype=int)
-        # N x 2 dimensions
-        self.spatial_positions = np.zeros((max_iterations, self.nbr_targets, 2))
-        # N dimensions
-        self.target_ids = np.zeros((max_iterations,), dtype=int)
-        # N dimensions, this is probably not really needed
-        self.observation_ids = np.zeros((max_iterations,), dtype=int)
+        self.service = rospy.Service('smooth_estimates', EmptySrv, self.smooth_callback)
 
-        self.target_poses = PoseArray()
+        self.last_time = -1
 
-        # We should probably save the feature and spatial noise used to generate the measurements
-        # The easiest way to do this is to add parameters to the measurement_simulator node
-        self.spatial_measurement_std = rospy.get_param('spatial_measurement_std', 0.1)
-        self.feature_measurement_std = rospy.get_param('feature_measurement_std', 0.1)
-
-        #self.gmm_pub = rospy.Publisher('filter_gmms', GMMPoses, queue_size=10)
-        self.poses_pub = rospy.Publisher('set_target_poses', PoseArray, queue_size=10)
-        self.obs_pub = rospy.Publisher('sim_filter_measurements', ObjectMeasurement, queue_size=10)
-
-        #self.initialized = np.zeros((self.nbr_targets,), dtype=bool)
-
-        self.is_playing = False
-        self.iteration = 0
-        self.is_through = False
-        self.autostep = False
-        rospy.Subscriber("filter_measurements", ObjectMeasurement, self.obs_callback)
-        rospy.Subscriber("get_target_poses", PoseArray, self.poses_callback)
-
-        # TEMP
-        rospy.Subscriber("filter_ready", Empty, self.step_callback)
-
-        self._action_name = "/observation_db"
-        rospy.loginfo("Creating action server...")
-        self._as = actionlib.SimpleActionServer(self._action_name, ObservationDBAction,
-                                                execute_cb = self.execute_callback,
-                                                auto_start = False)
-        rospy.loginfo(" ...starting")
-        self._as.start()
-        rospy.loginfo(" ...done")
-
-    def execute_callback(self, goal):
-
-        SmootherServer._result.response = "Success!"
-        #SmootherServer._result.success = True
-
-        if goal.action == 'record':
-            self.is_playing = False
-            self.autostep = False
-            self.iteration = 0
-        elif goal.action == 'save':
-            self.save_observation_sequence(goal.observations_file)
-        elif goal.action == 'load':
-            self.load_observation_sequence(goal.observations_file)
-            self.is_through = False
-            self.is_playing = True
-            self.iteration = 0
-        elif goal.action == 'replay':
-            self.is_playing = True
-            self.iteration = 0
-        elif goal.action == 'step':
-            self.autostep = False
-            self.step()
-        elif goal.action == 'autostep':
-            #rospy.Subscriber("filter_ready", Empty, self.step_callback)
-            SmootherServer._result.response = "Playing back!"
-            self.autostep = True
-            self.step()
-            #r = rospy.Rate(10.)
-            #while not rospy.is_shutdown():
-            #    r.sleep()
-            #    if self.is_through:
-            #        break
-        else:
-            SmootherServer._result.response = "Valid actions are: 'record', 'save', 'load', 'replay', 'step', 'autostep'"
-            #SmootherServer._result.success = False
-
-        self._as.set_succeeded(SmootherServer._result)
-
-    def step_callback(self, msg):
-
-        print "Got step callback!"
-        if not self.autostep:
-            return
-
-        self.step()
-
-    def step(self):
-
-        if not self.is_playing:
-            SmootherServer._result.response = "Can't step if not replay..."
-            #SmootherServer._result.success = False
-            return
-
-        if self.iteration >= len(self.timesteps):
-            SmootherServer._result.response = "Done playing back, no more measurements!"
-            self.is_through = True
-            #SmootherServer._result.success = False
-            return
-
-        first_timestep = self.timesteps[self.iteration]
-
-        poses = PoseArray()
-        poses.header.frame_id = 'map'
-        for j in range(0, self.nbr_targets):
-            p = Pose()
-            p.position.x = self.spatial_positions[self.iteration, j, 0]
-            p.position.y = self.spatial_positions[self.iteration, j, 1]
-            poses.poses.append(p)
-
-        self.poses_pub.publish(poses)
-
-        while True:
-
-            obs = ObjectMeasurement()
-            for i in range(0, self.feature_dim):
-                obs.feature.append(self.feature_measurements[self.iteration, i])
-            obs.pose.pose.position.x = self.spatial_measurements[self.iteration, 0]
-            obs.pose.pose.position.y = self.spatial_measurements[self.iteration, 1]
-            obs.initialization_id = self.target_ids[self.iteration]
-            obs.observation_id = self.observation_ids[self.iteration]
-            obs.timestep = self.timesteps[self.iteration]
-
-            self.obs_pub.publish(obs)
-
-            self.iteration += 1
-
-            if not self.step_by_timestep or self.iteration >= len(self.timesteps) \
-               or self.timesteps[self.iteration] != first_timestep:
-               break
-
-
-    def save_observation_sequence(self, observations_file):
-
-        self.spatial_measurements = self.spatial_measurements[:self.iteration,:]
-        self.feature_measurements = self.feature_measurements[:self.iteration,:]
-        self.timesteps = self.timesteps[:self.iteration]
-        self.spatial_positions = self.spatial_positions[:self.iteration,:,:]
-        self.target_ids = self.target_ids[:self.iteration]
-        self.observation_ids = self.observation_ids[:self.iteration]
-
-        np.savez(observations_file, spatial_measurements = self.spatial_measurements,
-                                    feature_measurements = self.feature_measurements,
-                                    timesteps = self.timesteps,
-                                    spatial_positions = self.spatial_positions,
-                                    target_ids = self.target_ids,
-                                    observation_ids = self.observation_ids,
-                                    spatial_measurement_std = self.spatial_measurement_std,
-                                    feature_measurement_std = self.feature_measurement_std)
-
-        SmootherServer._result.response = "Save observations at " + observations_file
-
-    def load_observation_sequence(self, observations_file):
-        if not os.path.isfile(observations_file):
-
-            SmootherServer._result.response = "Could not load observations at " + observations_file
-
-            return False
-        npzfile = np.load(observations_file)
-        self.spatial_measurements = npzfile['spatial_measurements']
-        self.feature_measurements = npzfile['feature_measurements']
-        self.timesteps = npzfile['timesteps']
-        self.spatial_positions = npzfile['spatial_positions']
-        self.target_ids = npzfile['target_ids']
-        self.observation_ids = npzfile['observation_ids']
-        self.spatial_measurement_std = npzfile['spatial_measurement_std']
-        self.feature_measurement_std = npzfile['feature_measurement_std']
-
-        SmootherServer._result.response = "Loaded observations at " + observations_file
-
-        return True
+        rospy.Subscriber("filter_measurements", ObjectMeasurement, self.callback)
+        rospy.Subscriber("sim_filter_measurements", ObjectMeasurement, self.callback)
 
     # here we got a measurement, with pose and feature, time is in the pose header
-    def obs_callback(self, obs):
+    def callback(self, pose):
 
-        if self.is_playing:
-            return
+        if pose.timestep != self.last_time:
+            self.last_time = pose.timestep
+            self.par_visualize_marginals(self.smoother.filter)
 
-        for i in range(0, self.feature_dim):
-            self.feature_measurements[self.iteration, i] = obs.feature[i]
-        self.spatial_measurements[self.iteration, 0] = obs.pose.pose.position.x
-        self.spatial_measurements[self.iteration, 1] = obs.pose.pose.position.y
-        self.target_ids[self.iteration] = obs.initialization_id
-        self.observation_ids[self.iteration] = obs.observation_id
-        self.timesteps[self.iteration] = obs.timestep
+        measurement_dim = len(pose.feature)
 
-        for j, p in enumerate(self.target_poses.poses):
-            self.spatial_positions[self.iteration, j, 0] = p.position.x
-            self.spatial_positions[self.iteration, j, 1] = p.position.y
+        feature_measurement = np.zeros((measurement_dim,))
+        spatial_measurement = np.zeros((2,))
+        spatial_measurement[0] = pose.pose.pose.position.x
+        spatial_measurement[1] = pose.pose.pose.position.y
+        for i in range(0, measurement_dim):
+            feature_measurement[i] = pose.feature[i]
 
-        self.iteration += 1
+        is_init = np.all(self.initialized)
+        print self.initialized
+        print pose.initialization_id
+        print self.nbr_targets
+        if not is_init and pose.initialization_id != -1:
+            print "Not intialized, adding initialization..."
+            self.smoother.initialize_target(pose.initialization_id, spatial_measurement, feature_measurement, pose.timestep)
+            self.initialized[pose.initialization_id] = True
+        else:
+            if not is_init:
+                print "All targets have not been initialized, not updating..."
+                return
+            print "Intialized, adding measurement..."
+            self.smoother.single_update(spatial_measurement, feature_measurement, pose.timestep, pose.observation_id)
 
-    def poses_callback(self, poses):
+        # We should add an argument to only do this in some cases
+        #self.par_visualize_marginals(self.smoother.filter)
+        e = Empty()
+        self.ready_pub.publish(e)
 
-        self.target_poses = poses
-
-    def publish_marginals(self, rbpfilter):
+    def par_visualize_marginals(self, rbpfilter):
 
         gmms = filter_to_gmms(rbpfilter, self.initialized)
-        for gmm in gmms:
-            self.gmm_pub.publish(gmm)
+        rospy.wait_for_service('publish_gmm_maps')
+        try:
+            publish_maps = rospy.ServiceProxy('publish_gmm_maps', PublishGMMMaps)
+            publish_maps(gmms)
+        except rospy.ServiceException, e:
+            print "Service call failed: %s"%e
+
+    def smooth_callback(self, req):
+
+        self.smoother.smooth()
+
+        return
 
 
 if __name__ == '__main__':
 
     rospy.init_node('test_smoother', anonymous=True)
 
-    ss = SmootherServer()
+    sn = SmootherNode()
 
     rospy.spin()

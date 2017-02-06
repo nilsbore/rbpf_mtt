@@ -8,6 +8,7 @@
     <arg name="db_name" default="somadata"/>
     <arg name="feature_dim" default="4"/>
     <arg name="step_by_timestep" default="true"/>
+    <!-- <arg name="smoother" default="false"/> -->
 
     <include file="$(find mongodb_store)/launch/mongodb_store.launch">
         <arg name="db_path" value="$(arg db_path)"/>
@@ -19,10 +20,15 @@
     <node pkg="rbpf_mtt" type="test_map_server.py" name="test_map_server" output="screen" respawn="true" if="$(arg test)">
         <param name="number_targets" value="$(arg number_targets)"/>
     </node>
+    <!-- TODO: figure out how to launch this conditionally
     <node pkg="rbpf_mtt" type="test_filter.py" name="test_filter" output="screen" respawn="true" unless="$(arg test)">
         <param name="number_targets" value="$(arg number_targets)"/>
     </node>
+    -->
     <node pkg="rbpf_mtt" type="test_smoother.py" name="test_smoother" output="screen" respawn="true" unless="$(arg test)">
+        <param name="number_targets" value="$(arg number_targets)"/>
+    </node>
+    <node pkg="rbpf_mtt" type="smoother_server.py" name="smoother_server" output="screen" respawn="true" unless="$(arg test)">
         <param name="number_targets" value="$(arg number_targets)"/>
         <param name="feature_dim" value="$(arg feature_dim)"/>
         <param name="step_by_timestep" value="$(arg step_by_timestep)"/>

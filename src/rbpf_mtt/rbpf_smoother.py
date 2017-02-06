@@ -6,20 +6,24 @@ import math
 # functions to the filter as a member
 class RBPFMTTSmoother(object):
 
-    def __init__(self, nbr_targets, nbr_particles, feature_dim, nbr_timesteps, nbr_backward_sims):
+    def __init__(self, nbr_targets, nbr_particles, feature_dim, nbr_backward_sims):
 
         self.nbr_targets = nbr_targets
         self.nbr_particles = nbr_particles
-        self.nbr_timesteps = nbr_timesteps
         self.nbr_backward_sims = nbr_backward_sims
         self.feature_dim = feature_dim
 
+        max_iterations = 1000
+
         self.filter = RBPFMTTFilter(nbr_targets, nbr_particles, feature_dim)
 
-        self.timestep_particles = [[] for i in range(0, nbr_timesteps)]
-        self.timestep_weights = 1./nbr_particles*np.ones((nbr_timesteps, nbr_particles))
-        self.spatial_measurements = np.zeros((nbr_timesteps, 2))
-        self.feature_measurements = np.zeros((nbr_timesteps, feature_dim))
+        self.timestep_particles = [[] for i in range(0, max_iterations)]
+        self.timestep_weights = 1./nbr_particles*np.ones((max_iterations, nbr_particles))
+        self.spatial_measurements = np.zeros((max_iterations, 2))
+        self.feature_measurements = np.zeros((max_iterations, feature_dim))
+        self.timesteps = np.zeros((max_iterations,), dtype=int)
+
+        self.nbr_timesteps = 0
 
     def resample(self):
 
@@ -27,15 +31,27 @@ class RBPFMTTSmoother(object):
 
     def single_update(self, spatial_measurement, feature_measurement, time, observation_id):
 
+        self.spatial_measurements[self.nbr_timesteps] = spatial_measurement
+        self.feature_measurements[self.nbr_timesteps] = feature_measurement
+        self.timesteps[self.nbr_timesteps] = time
         self.filter.single_update(spatial_measurement, feature_measurement, time, observation_id)
+        self.timestep_particles[self.nbr_timesteps] = self.filter.particles
+        self.timestep_weights[self.nbr_timesteps] = self.filter.weights
+        self.nbr_timesteps += 1
 
     def predict(self):
 
         self.filter.predict()
 
-    def initialize_target(self, target_id, spatial_measurement, feature_measurement):
+    def initialize_target(self, target_id, spatial_measurement, feature_measurement, time):
 
+        self.spatial_measurements[self.nbr_timesteps] = spatial_measurement
+        self.feature_measurements[self.nbr_timesteps] = feature_measurement
+        self.timesteps[self.nbr_timesteps] = time
         self.filter.initialize_target(target_id, spatial_measurement, feature_measurement)
+        self.timestep_particles[self.nbr_timesteps] = self.filter.particles
+        self.timestep_weights[self.nbr_timesteps] = self.filter.weights
+        self.nbr_timesteps += 1
 
     # now, we should already have all the information, let's just roll this
     # backwards and see what happens!
@@ -53,8 +69,8 @@ class RBPFMTTSmoother(object):
         spatial_process_noise = 1.5
         feature_process_noise = 0.1
 
-        sQ = np.identity(self.sm.shape[1]) # process noise
-        fQ = np.identity(self.fm.shape[1]) # process noise
+        sQ = np.identity(spatial_dim) # process noise
+        fQ = np.identity(feature_dim) # process noise
 
         for s in range(0, self.nbr_backward_sims):
 
@@ -76,10 +92,10 @@ class RBPFMTTSmoother(object):
                 # m_k = m^-_k + K_k [y_k - H(u_k) m^-_k]
                 # P_k = P^-_k - K_k S_k K^T_k
 
-                smM = np.zeros((nbr_targets, spatial_dim)) # the Kalman filter means
-                fmM = np.zeros((nbr_targets, feature_dim))
-                sPM = np.zeros((nbr_targets, spatial_dim, spatial_dim)) # the Kalman filter covariances
-                fPM = np.zeros((nbr_targets, feature_dim, feature_dim))
+                smM = np.zeros((self.nbr_targets, spatial_dim)) # the Kalman filter means
+                fmM = np.zeros((self.nbr_targets, feature_dim))
+                sPM = np.zeros((self.nbr_targets, spatial_dim, spatial_dim)) # the Kalman filter covariances
+                fPM = np.zeros((self.nbr_targets, feature_dim, feature_dim))
                 wM = np.zeros((self.nbr_particles,))
 
                 for l in range(0, self.nbr_particles):
@@ -104,21 +120,21 @@ class RBPFMTTSmoother(object):
                     smm = self.timestep_particles[k][l].sm[j]
                     # this is the predict update
                     sPm = self.timestep_particles[k][l].sP[j] + sQ
-                    sSm = sPm + sRs
+                    sSm = sPm + sR
                     # this is basically the same as the update
-                    sKm = np.solve(sSm, sPm)
+                    sKm = np.linalg.solve(sSm, sPm)
                     # the question is, what is meas here?
                     # hmm, I guess our measurement model might actually depend on c..., i.e. 0 for some
                     # or rather, how can we motivate this being the meas indicated by c?
                     # right, we only update the part indicated by c, so the measurement model
                     # actually transforms down the big state vector quite a bit
-                    sm = smm + np.dot(smK, self.spatial_measurements[k] - smm)
+                    sm = smm + np.dot(sKm, self.spatial_measurements[k] - smm)
                     sP = sPm - np.dot(sKm, np.dot(sSm, sKm.transpose()))
 
                     fmm = self.timestep_particles[k][l].fm[j]
                     fPm = self.timestep_particles[k][l].fP[j] + fQ
                     fSm = fPm + fR
-                    fKm = np.solve(fSm, fPm)
+                    fKm = np.linalg.solve(fSm, fPm)
                     # the question is, what is meas here?
                     # hmm, I guess our measurement model might actually depend on c..., i.e. 0 for some
                     # or rather, how can we motivate this being the meas indicated by c?
@@ -150,7 +166,7 @@ class RBPFMTTSmoother(object):
                              gauss_pdf(self.feature_measurements[k], self.timestep_particles[k][l].fm[j], fSm)
 
                     # Smoother weights update
-                    # w^(i)_k|k+1 ∝ w^(i)_k p(u^~_k+1 | u^(i)_k)  |det A(u^(i)_k)|^-1
+                    # w^(i)_k|k+1 \sim w^(i)_k p(u^~_k+1 | u^(i)_k)  |det A(u^(i)_k)|^-1
                     # * N(m^(i)_k| m^-b,(i)_k, P^(i)_k + P^-b,(i)_k)
                     # The question arises again, which measurement should we use?
 
