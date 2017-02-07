@@ -37,7 +37,7 @@ class RBPFMTTSmoother(object):
         self.timesteps[self.nbr_timesteps] = time
         self.filter.single_update(spatial_measurement, feature_measurement, time, observation_id)
         #self.timestep_particles[self.nbr_timesteps] = copy.deepcopy(self.filter.particles)
-        self.timestep_particles[self.nbr_timesteps] = list(self.filter.particles)
+        self.timestep_particles[self.nbr_timesteps] = copy.deepcopy(self.filter.particles)
         self.timestep_weights[self.nbr_timesteps] = np.array(self.filter.weights)
         self.nbr_timesteps += 1
 
@@ -52,8 +52,8 @@ class RBPFMTTSmoother(object):
         self.timesteps[self.nbr_timesteps] = time
         self.filter.initialize_target(target_id, spatial_measurement, feature_measurement)
         #self.timestep_particles[self.nbr_timesteps] = copy.deepcopy(self.filter.particles)
-        self.timestep_particles[self.nbr_timesteps] = list(self.filter.particles)
-        self.timestep_weights[self.nbr_timesteps] = self.filter.weights
+        self.timestep_particles[self.nbr_timesteps] = copy.deepcopy(self.filter.particles)
+        self.timestep_weights[self.nbr_timesteps] = np.array(self.filter.weights)
         self.nbr_timesteps += 1
 
     # now, we should already have all the information, let's just roll this
@@ -119,6 +119,13 @@ class RBPFMTTSmoother(object):
                     #     sP = sPm - np.dot(sKm, np.dot(sSm, sKm.transpose()))
 
                     # NOTE: this is exactly the kalman update equations
+
+                    #print k, l
+                    #print len(self.timestep_particles), len(self.timestep_particles[k]), len(c)
+                    if len(self.timestep_particles[k][l].c) == 0:
+                        pclutter = 0.01
+                        wM[l] = self.timestep_weights[k, l] * pclutter
+                        continue
 
                     j = self.timestep_particles[k][l].c[-1] # this should be the target associated with this measurement
                     # TODO: of course, we don't know this since it might also be that it was associated with noise

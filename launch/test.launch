@@ -8,6 +8,7 @@
     <arg name="db_name" default="somadata"/>
     <arg name="feature_dim" default="4"/>
     <arg name="step_by_timestep" default="true"/>
+    <arg name="publish_maps" default="true"/>
     <!-- <arg name="smoother" default="false"/> -->
 
     <include file="$(find mongodb_store)/launch/mongodb_store.launch">
@@ -27,6 +28,7 @@
     -->
     <node pkg="rbpf_mtt" type="test_smoother.py" name="test_smoother" output="screen" respawn="true" unless="$(arg test)">
         <param name="number_targets" value="$(arg number_targets)"/>
+        <param name="publish_maps" value="$(arg publish_maps)"/>
     </node>
     <node pkg="rbpf_mtt" type="smoother_server.py" name="smoother_server" output="screen" respawn="true" unless="$(arg test)">
         <param name="number_targets" value="$(arg number_targets)"/>

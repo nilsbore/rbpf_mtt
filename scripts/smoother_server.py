@@ -120,7 +120,7 @@ class SmootherServer(object):
             #self._as.action_server.publish_feedback()
             self.is_smoothed = True
             self.is_through = False
-            self.iteration = 4
+            self.iteration = 0
             self.is_playing = True
         else:
             SmootherServer._result.response = "Valid actions are: 'record', 'save', 'load', 'replay', 'step', 'autostep'"
@@ -149,10 +149,10 @@ class SmootherServer(object):
             #SmootherServer._result.success = False
             return
 
-        if self.is_smoothed:
-            self.smooth_pub.publish(self.iteration)
-            self.iteration += 1
-            return
+        # if self.is_smoothed:
+        #     self.smooth_pub.publish(self.iteration)
+        #     self.iteration += 1
+        #     return
 
         first_timestep = self.timesteps[self.iteration]
 
@@ -178,6 +178,8 @@ class SmootherServer(object):
             obs.timestep = self.timesteps[self.iteration]
 
             self.obs_pub.publish(obs)
+            if self.is_smoothed:
+                self.smooth_pub.publish(self.iteration)
 
             self.iteration += 1
 

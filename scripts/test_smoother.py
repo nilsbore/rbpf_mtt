@@ -21,6 +21,7 @@ class SmootherNode(object):
         self.ready_pub = rospy.Publisher('filter_ready', Empty, queue_size=10)
 
         self.nbr_targets = rospy.get_param('~number_targets', 2)
+        self.publish_maps = rospy.get_param('~publish_maps', True)
 
         self.smoother = RBPFMTTSmoother(self.nbr_targets, 100, 4, 10)
         self.initialized = np.zeros((self.nbr_targets,), dtype=bool)
@@ -40,7 +41,7 @@ class SmootherNode(object):
         if self.is_smoothed:
             return
 
-        if pose.timestep != self.last_time:
+        if pose.timestep != self.last_time and self.publish_maps:
             self.last_time = pose.timestep
             self.par_visualize_marginals(self.smoother.filter)
 
