@@ -122,6 +122,15 @@ class SmootherServer(object):
             self.is_through = False
             self.iteration = 0
             self.is_playing = True
+        elif goal.action == 'autoload':
+            self.load_observation_sequence(goal.observations_file)
+            self.is_smoothed = False
+            self.is_through = False
+            self.is_playing = True
+            self.iteration = 0
+            SmootherServer._result.response = "Playing back!"
+            self.autostep = True
+            self.step()
         else:
             SmootherServer._result.response = "Valid actions are: 'record', 'save', 'load', 'replay', 'step', 'autostep'"
             #SmootherServer._result.success = False

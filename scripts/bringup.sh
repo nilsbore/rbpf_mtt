@@ -12,7 +12,7 @@ tmux new-window -t $SESSION:0 -n 'roscore'
 #tmux new-window -t $SESSION:2 -n 'soma'
 tmux new-window -t $SESSION:1 -n 'rviz'
 tmux new-window -t $SESSION:2 -n 'simulation'
-#tmux new-window -t $SESSION:5 -n 'create_query_models'
+tmux new-window -t $SESSION:3 -n 'axclient'
 #tmux new-window -t $SESSION:6 -n 'graph_node'
 #tmux new-window -t $SESSION:7 -n 'inference_node'
 
@@ -27,6 +27,11 @@ tmux select-window -t $SESSION:2
 tmux send-keys "source $SOURCE_WS" C-m
 #tmux send-keys "roslaunch quasimodo_retrieval retrieval.launch vocabulary_path:=/home/nbore/Data/tsc_semantic_maps/vocabulary"
 tmux send-keys "roslaunch rbpf_mtt test.launch map:=/home/nbore/dynamic_map.yaml db_path:=/home/nbore/moving_objects_db number_targets:=2"
+
+
+tmux select-window -t $SESSION:3
+tmux send-keys "source $SOURCE_WS" C-m
+tmux send-keys "rosrun actionlib axclient.py /observation_db"
 
 # Set default window
 tmux select-window -t $SESSION:0

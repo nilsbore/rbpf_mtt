@@ -1,5 +1,6 @@
 import numpy as np
 import math
+import copy
 
 def gauss_pdf(y, m, P):
     d = y - m
@@ -227,9 +228,12 @@ class RBPFMTTFilter(object):
 
     def resample(self): # maybe this should take measurements?
 
-        old_particles = self.particles
+        old_particles = copy.deepcopy(self.particles)
 
-        samples = np.random.choice(self.nbr_particles, self.nbr_particles, p=self.weights)
+        samples = np.random.choice(self.nbr_particles, self.nbr_particles, p=self.weights, replace=True)
+
+        print "Weights: ", self.weights
+        print "Samples: ", samples
 
         # now resample based on the weights
         for i in range(0, self.nbr_particles):
@@ -248,8 +252,11 @@ class RBPFMTTFilter(object):
 
     def single_update(self, spatial_measurement, feature_measurement, time, observation_id):
 
+        if time != self.last_time:
+            pass#self.predict()
+
         #if self.last_time != time and self.last_time != -1:
-        if self.time_since_resampling > 5:
+        if time != self.last_time and self.time_since_resampling > 10:
             #self.resample()
             self.time_since_resampling += 1
             self.resampled = False

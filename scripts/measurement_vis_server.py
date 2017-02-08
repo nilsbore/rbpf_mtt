@@ -58,6 +58,8 @@ class MeasurementVisServer(object):
         self.timestep = 0
         self.measurement_counter = 0
 
+        self.clear_markers()
+
         #rospy.Timer(rospy.Duration(0.1), callback=self.maybe_publish_poses)
         rospy.Timer(rospy.Duration(0.1), callback=self.maybe_publish_rooms)
         rospy.Subscriber("filter_measurements", ObjectMeasurement, self.callback)
@@ -70,6 +72,8 @@ class MeasurementVisServer(object):
 
         for j, p in enumerate(poses.poses):
             name = "object_marker_" + str(j)
+            p.position.z = 0.15
+            self.marker_poses[j] = p
             self.marker_server.setPose(name, p)
         self.marker_server.applyChanges()
 
@@ -201,14 +205,24 @@ class MeasurementVisServer(object):
 
         clear_markers = MarkerArray()
 
+        pose = Pose()
+        pose.position.x = 0.
+        pose.position.y = 0.
+        pose.position.z = 0.
+        pose.orientation.x = 0.
+        pose.orientation.y = 0.
+        pose.orientation.z = 0.
+        pose.orientation.w = 1.
+
         for i in range(0, 1000):
             clear_marker = Marker()
             clear_marker.header.frame_id = "map"
             clear_marker.header.stamp = rospy.Time.now()
-            #clear_marker.type = Marker.SPHERE
+            clear_marker.type = Marker.SPHERE
             clear_marker.action = Marker.DELETE
             clear_marker.ns = "my_namespace"
             clear_marker.id = i
+            clear_marker.pose = pose
             #clear_marker.lifetime = rospy.Time(0)
             clear_markers.markers.append(clear_marker)
 
