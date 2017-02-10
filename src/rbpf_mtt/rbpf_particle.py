@@ -225,10 +225,10 @@ class RBPFMParticle(object):
         nbr_observations = spatial_measurements.shape[0]
 
         # we somehow need to integrate the feature density into these clutter things
-        pclutter = 0.00002 # probability of measurement originating from noise
-        pdclutter = 0.00002 # probability density of clutter measurement
+        pclutter = 0.0001 # probability of measurement originating from noise
+        pdclutter = 0.00001 # probability density of clutter measurement
         spatial_measurement_noise = 0.4
-        feature_measurement_noise = 0.2
+        feature_measurement_noise = 0.4
         pjump = 0.02
 
         nbr_targets = self.sm.shape[0]

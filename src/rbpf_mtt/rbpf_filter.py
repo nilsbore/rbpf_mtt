@@ -3,6 +3,7 @@ import math
 import copy
 from cartesian import cartesian_inds
 from rbpf_mtt.rbpf_particle import RBPFMParticle
+import random
 
 class RBPFMTTFilter(object):
 
@@ -33,6 +34,36 @@ class RBPFMTTFilter(object):
 
         print "Weights: ", self.weights
         print "Samples: ", samples
+
+        # now resample based on the weights
+        for i in range(0, self.nbr_particles):
+            self.weights[i] = 1./float(self.nbr_particles)
+            self.particles[i] = old_particles[samples[i]]
+
+        self.resampled = True
+        self.time_since_resampling = 0
+
+    def systematic_resample(self): # maybe this should take measurements?
+
+        old_particles = copy.deepcopy(self.particles)
+
+        #samples = np.random.choice(self.nbr_particles, self.nbr_particles, p=self.weights, replace=True)
+
+
+
+        print "Weights: ", self.weights
+        #print "Samples: ", samples
+
+        u = random.random()
+        U = np.arange(self.nbr_particles, dtype=float)/float(self.nbr_particles) + u
+        wc = np.cumsum(self.weights)
+
+        samples = np.zeros((self.nbr_particles,), dtype=int)
+        k = 0
+        for i in range(0, self.nbr_particles):
+            while k < self.nbr_particles-1 and wc[k] < U[i]:
+                k += 1
+            samples[i] = k
 
         # now resample based on the weights
         for i in range(0, self.nbr_particles):
@@ -100,6 +131,7 @@ class RBPFMTTFilter(object):
 
         if self.time_since_resampling > 5:
             #self.multinomial_resample()
+            #self.systematic_resample()
             pass
         else:
             self.time_since_resampling += 1
