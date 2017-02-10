@@ -4,6 +4,7 @@ import copy
 from cartesian import cartesian_inds
 from rbpf_mtt.rbpf_particle import RBPFMParticle
 import random
+import matplotlib.pyplot as plt
 
 class RBPFMTTFilter(object):
 
@@ -123,13 +124,27 @@ class RBPFMTTFilter(object):
 
         self.last_time = time
 
+        nbr_jumps = np.zeros((self.nbr_particles,))
         for i, p in enumerate(self.particles):
-            weights_update = p.joint_update(spatial_measurements, feature_measurements, time, observation_id)
-            print "Updating particle", i, " with weight: ", weights_update, ", particle weight: ", self.weights[i]
+            weights_update = self.particles[i].joint_update(spatial_measurements, feature_measurements, time, observation_id)
+            print "Updating particle", i, " with weight: ", weights_update, ", particle weight: ", self.weights[i], ", did jump: ", p.did_jump, "nbr jumps: ", p.nbr_jumps
             self.weights[i] *= weights_update
+            nbr_jumps[i] = p.nbr_jumps
         self.weights = 1./np.sum(self.weights)*self.weights
 
-        if self.time_since_resampling > 5:
+        #plt.plot(nbr_jumps, self.weights)
+        plt.scatter(nbr_jumps, np.log(self.weights), marker="*")
+
+        plt.xlabel('time (s)')
+        plt.ylabel('voltage (mV)')
+        plt.title('About as simple as it gets, folks')
+        plt.grid(True)
+        plt.savefig("test.png")
+        plt.clf()
+        plt.cla()
+        #plt.show()
+
+        if True: #self.time_since_resampling > 5:
             #self.multinomial_resample()
             #self.systematic_resample()
             pass

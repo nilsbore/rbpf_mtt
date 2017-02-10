@@ -23,6 +23,8 @@ class RBPFMParticle(object):
         self.measurement_partitions = np.zeros((nbr_targets), dtype=int) # assigns targets to measurement sets
         self.last_time = -1
         self.associations = {}
+        self.did_jump = False
+        self.nbr_jumps = 0
         # the way this is supposed to work is that, when we sample a new c, we can only do it within one set
 
     def predict(self, measurement_partition=None):
@@ -215,6 +217,7 @@ class RBPFMParticle(object):
     def joint_update(self, spatial_measurements, feature_measurements, time, observation_id):
 
         self.c = []
+        self.did_jump = False
 
         if time != self.last_time:
             self.c = []
@@ -229,7 +232,7 @@ class RBPFMParticle(object):
         pdclutter = 0.00001 # probability density of clutter measurement
         spatial_measurement_noise = 0.4
         feature_measurement_noise = 0.4
-        pjump = 0.02
+        pjump = 0.01
 
         nbr_targets = self.sm.shape[0]
         spatial_dim = self.sm.shape[1]
@@ -338,7 +341,7 @@ class RBPFMParticle(object):
 
             # so what happens here if i ==
             if i == nbr_targets+1:
-                weights_update *= pjump
+                weights_update *= 50.*pjump
             else:
                 weights_update *= likelihoods[k, i]/pc[k, i]
 
@@ -356,6 +359,8 @@ class RBPFMParticle(object):
                 self.c.append(i)
                 self.sm[i] = spatial_measurements[k]
                 self.sP[i] = 0.4*np.eye(spatial_dim)
+                self.did_jump = True
+                self.nbr_jumps += 1
             else:
                 self.sm[i] = pot_sm[k, i]
                 self.fm[i] = pot_fm[k, i]
