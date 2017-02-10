@@ -21,7 +21,11 @@ class RBPFMTTFilter(object):
         self.resampled = False
         self.time_since_resampling = 0
 
-    def resample(self): # maybe this should take measurements?
+    def effective_sample_size(self):
+
+        return 1./np.sum(np.square(self.weights)) # should this also be sqrt? no!
+
+    def multinomial_resample(self): # maybe this should take measurements?
 
         old_particles = copy.deepcopy(self.particles)
 
@@ -52,7 +56,7 @@ class RBPFMTTFilter(object):
 
         #if self.last_time != time and self.last_time != -1:
         if time != self.last_time and self.time_since_resampling > 10:
-            #self.resample()
+            #self.multinomial_resample()
             self.time_since_resampling += 1
             self.resampled = False
         else:
@@ -79,7 +83,7 @@ class RBPFMTTFilter(object):
 
         #if self.last_time != time and self.last_time != -1:
         if time != self.last_time and self.time_since_resampling > 10:
-            #self.resample()
+            #self.multinomial_resample()
             self.time_since_resampling += 1
             self.resampled = False
         else:
@@ -94,7 +98,11 @@ class RBPFMTTFilter(object):
             self.weights[i] *= weights_update
         self.weights = 1./np.sum(self.weights)*self.weights
 
-        #self.resample()
+        if self.time_since_resampling > 5:
+            #self.multinomial_resample()
+            pass
+        else:
+            self.time_since_resampling += 1
 
         print self.last_time
         print time

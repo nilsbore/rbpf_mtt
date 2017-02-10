@@ -214,6 +214,8 @@ class RBPFMParticle(object):
     # and does association jointly, leading to fewer particles with low weights
     def joint_update(self, spatial_measurements, feature_measurements, time, observation_id):
 
+        self.c = []
+
         if time != self.last_time:
             self.c = []
             self.last_time = time
@@ -227,7 +229,7 @@ class RBPFMParticle(object):
         pdclutter = 0.00002 # probability density of clutter measurement
         spatial_measurement_noise = 0.4
         feature_measurement_noise = 0.2
-        pjump = 0.002
+        pjump = 0.02
 
         nbr_targets = self.sm.shape[0]
         spatial_dim = self.sm.shape[1]
@@ -274,6 +276,9 @@ class RBPFMParticle(object):
             #likelihoods = 1./np.sum(likelihoods)*likelihoods
 
             # probability of measurement given association, may arise from clutter anyways?
+
+            # let's
+
             pc[k, :nbr_targets] = (1.-pclutter)*likelihoods[k, :nbr_targets]
             pc[k, nbr_targets] = pclutter*likelihoods[k, nbr_targets]
             pc[k, nbr_targets+1] = pjump
@@ -315,8 +320,14 @@ class RBPFMParticle(object):
                 nbr_sampled_noise = 0
                 if nbr_targets in unique_list:
                     nbr_sampled_noise = counts[unique_list.index(nbr_targets)] - 1
+                nbr_sampled_jumps = 0
+                if nbr_targets+1 in unique_list:
+                    nbr_sampled_jumps = counts[unique_list.index(nbr_targets+1)] - 1
                 print "Nbr sampled noise, targets: ", nbr_sampled_noise, nbr_targets
-                if len(unique) + nbr_sampled_noise == nbr_observations:
+                if len(unique) + nbr_sampled_noise + nbr_sampled_jumps == nbr_observations:
+                    for j in unique_list:
+                        if j != nbr_targets and j != nbr_targets+1:
+                            self.c.append(j)
                     break
                 else:
                     print "Found several similar states: ", states
@@ -337,16 +348,20 @@ class RBPFMParticle(object):
                 #we don't really care if it was associated with noise
 
             elif i == nbr_targets+1:
-                feature_likelihoods_k = feature_likelihoods[k]/np.sum(feature_likelihoods[k])
+                feature_likelihoods_k = feature_likelihoods[k]
+                for j in self.c:
+                    feature_likelihoods_k[j] = 0.
+                feature_likelihoods_k = feature_likelihoods_k/np.sum(feature_likelihoods[k])
                 i = np.random.choice(nbr_targets, p=feature_likelihoods_k)
+                self.c.append(i)
                 self.sm[i] = spatial_measurements[k]
-                self.sP[i] = 1.0*np.eye(spatial_dim)
+                self.sP[i] = 0.4*np.eye(spatial_dim)
             else:
                 self.sm[i] = pot_sm[k, i]
                 self.fm[i] = pot_fm[k, i]
                 self.sP[i] = pot_sP[k, i]
                 self.fP[i] = pot_fP[k, i]
-                self.c.append(i)
+                #self.c.append(i)
                 self.associations[observation_id] = i
 
         return weights_update

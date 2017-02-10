@@ -8,6 +8,7 @@
 #include <std_msgs/Empty.h>
 #include <rbpf_mtt/PublishGMMMap.h>
 #include <rbpf_mtt/PublishGMMMaps.h>
+#include <geometry_msgs/PoseArray.h>
 
 using namespace std;
 
@@ -52,7 +53,7 @@ public:
     ros::ServiceServer service;
     ros::ServiceServer multi_service;
     int nbr_targets;
-    //vector<ros::Publisher> pubs;
+    vector<ros::Publisher> pubs;
     nav_msgs::OccupancyGrid map;
     vector<costmap_2d::Costmap2D> costmaps;
     vector<costmap_2d::Costmap2DPublisher*> costmap_publishers;
@@ -69,12 +70,10 @@ public:
         ros::NodeHandle pn("~");
         pn.param<int>("number_targets", nbr_targets, 4);
 
-        /*
         pubs.resize(nbr_targets);
         for (int j = 0; j < nbr_targets; ++j) {
-            pubs[j] = n.advertise<nav_msgs::OccupancyGrid>(string("object_probabilities_") + to_string(j), 1, true); // latching
+            pubs[j] = n.advertise<geometry_msgs::PoseArray>(string("object_particles_") + to_string(j), 1, true); // latching
         }
-        */
 
         ready_pub = n.advertise<std_msgs::Empty>("map_ready", 1);
 
@@ -212,6 +211,20 @@ public:
 
     }
 
+    void publish_particles(const rbpf_mtt::GMMPoses& dist)
+    {
+        geometry_msgs::PoseArray particles;
+        particles.header.frame_id = "/map";
+        particles.header.stamp = ros::Time::now();
+
+        particles.poses.resize(dist.modes.size());
+        for (size_t i = 0; i < dist.modes.size(); ++i) {
+            particles.poses[i] = dist.modes[i].pose;
+        }
+
+        pubs[dist.id].publish(particles);
+    }
+
     void callback(const rbpf_mtt::GMMPoses::ConstPtr& dist)
     {
         publish_map(*dist);
@@ -233,6 +246,7 @@ public:
         }
 
         for (size_t i = 0; i < req.gmms.size(); ++i) {
+            publish_particles(req.gmms[i]);
             costmap_publishers[req.gmms[i].id]->publishCostmap();
         }
         return true;
