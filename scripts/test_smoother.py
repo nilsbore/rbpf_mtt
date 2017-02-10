@@ -11,6 +11,7 @@ from geometry_msgs.msg import PoseWithCovariance
 from visualization_msgs.msg import Marker, MarkerArray
 from std_msgs.msg import Empty, Int32
 from std_srvs.srv import Empty as EmptySrv
+import sys
 
 class SmootherNode(object):
 
@@ -31,20 +32,15 @@ class SmootherNode(object):
         self.last_time = -1
         self.is_smoothed = False
 
+        self.joint_spatial_measurement = None
+        self.joint_feature_measurement = None
+        self.all_timesteps = []
+
         rospy.Subscriber("filter_measurements", ObjectMeasurement, self.callback)
         rospy.Subscriber("sim_filter_measurements", ObjectMeasurement, self.callback)
         rospy.Subscriber("smoother_vis", Int32, self.vis_callback)
 
-    # here we got a measurement, with pose and feature, time is in the pose header
-    def callback(self, pose):
-
-        if self.is_smoothed:
-            return
-
-        if pose.timestep != self.last_time and self.publish_maps:
-            self.last_time = pose.timestep
-            self.par_visualize_marginals(self.smoother.filter)
-
+    def measurements_from_pose(self, pose):
         measurement_dim = len(pose.feature)
 
         feature_measurement = np.zeros((measurement_dim,))
@@ -54,7 +50,50 @@ class SmootherNode(object):
         for i in range(0, measurement_dim):
             feature_measurement[i] = pose.feature[i]
 
+        return spatial_measurement, feature_measurement
+
+
+    # here we got a measurement, with pose and feature, time is in the pose header
+    def callback(self, pose):
+
+        if self.is_smoothed:
+            return
+
+        self.all_timesteps.append(pose.timestep)
         is_init = np.all(self.initialized)
+        spatial_measurement, feature_measurement = self.measurements_from_pose(pose)
+
+        if pose.timestep != self.last_time:
+            self.last_time = pose.timestep
+            if self.publish_maps:
+                self.par_visualize_marginals(self.smoother.filter)
+            if is_init and self.joint_spatial_measurement is not None:
+                if self.joint_spatial_measurement.shape[0] > 4:
+                    print "Size: ", self.joint_spatial_measurement.shape[0]
+                    print "Exiting..."
+                    print self.all_timesteps
+                    print self.timesteps
+                    sys.exit()
+                self.smoother.joint_update(self.joint_spatial_measurement,
+                                           self.joint_feature_measurement,
+                                           pose.timestep,
+                                           pose.observation_id)
+            self.joint_spatial_measurement = None
+            self.joint_feature_measurement = None
+            self.joint_spatial_measurement = spatial_measurement
+            self.joint_feature_measurement = feature_measurement
+            self.timesteps = []
+            self.timesteps.append(pose.timestep)
+        elif is_init and pose.timestep != 0:
+            self.joint_spatial_measurement = np.vstack((self.joint_spatial_measurement, spatial_measurement))
+            self.joint_feature_measurement = np.vstack((self.joint_feature_measurement, feature_measurement))
+            self.timesteps.append(pose.timestep)
+
+        self.last_time = pose.timestep
+
+        print "time: ", pose.timestep
+        #print "spatial measurement size: ", self.joint_spatial_measurement.shape
+
         print self.initialized
         print pose.initialization_id
         print self.nbr_targets
@@ -67,7 +106,7 @@ class SmootherNode(object):
                 print "All targets have not been initialized, not updating..."
                 return
             print "Intialized, adding measurement..."
-            self.smoother.single_update(spatial_measurement, feature_measurement, pose.timestep, pose.observation_id)
+            #self.smoother.single_update(spatial_measurement, feature_measurement, pose.timestep, pose.observation_id)
 
         # We should add an argument to only do this in some cases
         #self.par_visualize_marginals(self.smoother.filter)

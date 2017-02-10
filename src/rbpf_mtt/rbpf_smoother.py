@@ -1,4 +1,5 @@
-from rbpf_mtt.rbpf_filter import RBPFMTTFilter, RBPFMParticle, gauss_pdf
+from rbpf_mtt.rbpf_filter import RBPFMTTFilter
+from rbpf_mtt.rbpf_particle import RBPFMParticle, gauss_pdf
 import numpy as np
 import math
 import copy
@@ -40,6 +41,18 @@ class RBPFMTTSmoother(object):
         self.timestep_particles[self.nbr_timesteps] = copy.deepcopy(self.filter.particles)
         self.timestep_weights[self.nbr_timesteps] = np.array(self.filter.weights)
         self.nbr_timesteps += 1
+
+    def joint_update(self, spatial_measurements, feature_measurements, time, observation_id):
+
+        self.filter.joint_update(spatial_measurements, feature_measurements, time, observation_id)
+
+        for k in range(0, spatial_measurements.shape[0]):
+            self.spatial_measurements[self.nbr_timesteps] = spatial_measurements[k]
+            self.feature_measurements[self.nbr_timesteps] = feature_measurements[k]
+            self.timesteps[self.nbr_timesteps] = time
+            self.timestep_particles[self.nbr_timesteps] = copy.deepcopy(self.filter.particles)
+            self.timestep_weights[self.nbr_timesteps] = np.array(self.filter.weights)
+            self.nbr_timesteps += 1
 
     def predict(self):
 

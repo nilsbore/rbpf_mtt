@@ -26,7 +26,7 @@
         <param name="number_targets" value="$(arg number_targets)"/>
     </node>
     -->
-    <node pkg="rbpf_mtt" type="test_smoother.py" name="test_smoother" output="screen" respawn="true" unless="$(arg test)">
+    <node pkg="rbpf_mtt" type="test_smoother.py" name="test_smoother" output="screen" respawn="false" unless="$(arg test)">
         <param name="number_targets" value="$(arg number_targets)"/>
         <param name="publish_maps" value="$(arg publish_maps)"/>
     </node>
