@@ -30,12 +30,14 @@ class RBPFMParticle(object):
         self.associations = {}
         self.did_jump = False
         self.nbr_jumps = 0
+        self.nbr_noise = 0
+        self.nbr_assoc = 0
         # the way this is supposed to work is that, when we sample a new c, we can only do it within one set
 
     def predict(self, measurement_partition=None):
 
-        spatial_process_noise = 0.2
-        feature_process_noise = 0.05
+        spatial_process_noise = 0.03
+        feature_process_noise = 0.01
 
         sQ = np.identity(self.sm.shape[1]) # process noise
         fQ = np.identity(self.fm.shape[1]) # process noise
@@ -233,8 +235,8 @@ class RBPFMParticle(object):
         nbr_observations = spatial_measurements.shape[0]
 
         # we somehow need to integrate the feature density into these clutter things
-        pclutter = 0.0001 # probability of measurement originating from noise
-        pdclutter = 0.00001 # probability density of clutter measurement
+        pclutter = 0.001 # probability of measurement originating from noise
+        pdclutter = 0.001 # probability density of clutter measurement
         spatial_var = self.spatial_std*self.spatial_std
         feature_var = self.feature_std*self.feature_std
         pjump = 0.001
@@ -346,12 +348,13 @@ class RBPFMParticle(object):
 
             # so what happens here if i ==
             if i == nbr_targets+1:
-                weights_update *= 5.*pjump
+                weights_update *= pjump
             else:
                 weights_update *= likelihoods[k, i]/pc[k, i]
 
             if i == nbr_targets:
-                pass
+                self.nbr_noise += 1
+                #pass
                 #self.c = nbr_targets # measurement is noise
                 #we don't really care if it was associated with noise
 
@@ -373,5 +376,6 @@ class RBPFMParticle(object):
                 self.fP[i] = pot_fP[k, i]
                 #self.c.append(i)
                 self.associations[observation_id] = i
+                self.nbr_assoc += 1
 
         return weights_update

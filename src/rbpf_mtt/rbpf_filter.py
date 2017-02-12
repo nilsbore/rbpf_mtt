@@ -41,7 +41,7 @@ class RBPFMTTFilter(object):
         # now resample based on the weights
         for i in range(0, self.nbr_particles):
             self.weights[i] = 1./float(self.nbr_particles)
-            self.particles[i] = old_particles[samples[i]]
+            self.particles[i] = copy.deepcopy(old_particles[samples[i]])
 
         self.resampled = True
         self.time_since_resampling = 0
@@ -127,15 +127,21 @@ class RBPFMTTFilter(object):
         self.last_time = time
 
         nbr_jumps = np.zeros((self.nbr_particles,))
+        nbr_noise = np.zeros((self.nbr_particles,))
+        nbr_assoc = np.zeros((self.nbr_particles,))
         for i, p in enumerate(self.particles):
             weights_update = self.particles[i].joint_update(spatial_measurements, feature_measurements, time, observation_id)
             print "Updating particle", i, " with weight: ", weights_update, ", particle weight: ", self.weights[i], ", did jump: ", p.did_jump, "nbr jumps: ", p.nbr_jumps
             self.weights[i] *= weights_update
             nbr_jumps[i] = p.nbr_jumps
+            nbr_noise[i] = p.nbr_noise
+            nbr_assoc[i] = p.nbr_assoc
         self.weights = 1./np.sum(self.weights)*self.weights
 
         #plt.plot(nbr_jumps, self.weights)
-        plt.scatter(nbr_jumps, np.log(self.weights), marker="*")
+        plt.scatter(nbr_jumps, np.log(self.weights), marker="*", color='red')
+        plt.scatter(nbr_noise, np.log(self.weights), marker="*", color='green')
+        plt.scatter(nbr_assoc, np.log(self.weights), marker="*", color='blue')
 
         plt.xlabel('time (s)')
         plt.ylabel('voltage (mV)')
@@ -146,8 +152,8 @@ class RBPFMTTFilter(object):
         plt.cla()
         #plt.show()
 
-        if self.time_since_resampling > 5:
-            #self.multinomial_resample()
+        if self.time_since_resampling > 4:
+            self.multinomial_resample()
             #self.systematic_resample()
             pass
         else:
