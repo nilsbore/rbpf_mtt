@@ -28,8 +28,8 @@ public:
         ros::NodeHandle pn("~");
         pn.param<int>("number_targets", nbr_targets, 4);
         pn.param<int>("feature_dim", feature_dim, 4);
-        pn.param<double>("feature_std", feature_std, 0.5);
-        pn.param<double>("spatial_std", spatial_std, 0.2);
+        pn.param<double>("feature_std", feature_std, 0.63);
+        pn.param<double>("spatial_std", spatial_std, 0.45);
 
         std::default_random_engine generator;
         std::normal_distribution<double> feature_distribution(0.0, 1.0);

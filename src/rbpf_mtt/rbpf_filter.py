@@ -8,14 +8,16 @@ import matplotlib.pyplot as plt
 
 class RBPFMTTFilter(object):
 
-    def __init__(self, nbr_targets, nbr_particles, feature_dim):
+    def __init__(self, nbr_targets, nbr_particles, feature_dim, spatial_std=0.63, feature_std=0.45):
 
         self.dim = 2 # I would like for this to be global instead
         self.feature_dim = feature_dim
         self.nbr_targets = nbr_targets
         self.nbr_particles = nbr_particles
+        self.spatial_std = spatial_std
+        self.feature_std = feature_std
 
-        self.particles = [RBPFMParticle(self.dim, feature_dim, nbr_targets) for i in range(0, nbr_particles)]
+        self.particles = [RBPFMParticle(self.dim, feature_dim, nbr_targets, spatial_std, feature_std) for i in range(0, nbr_particles)]
         self.weights = 1./nbr_particles*np.ones((nbr_particles))
 
         self.last_time = -1
@@ -144,7 +146,7 @@ class RBPFMTTFilter(object):
         plt.cla()
         #plt.show()
 
-        if True: #self.time_since_resampling > 5:
+        if self.time_since_resampling > 5:
             #self.multinomial_resample()
             #self.systematic_resample()
             pass
@@ -159,5 +161,5 @@ class RBPFMTTFilter(object):
         for i, p in enumerate(self.particles):
             p.sm[target_id] = spatial_measurement
             p.fm[target_id] = feature_measurement
-            p.sP[target_id] = 1.0*np.eye(self.dim)
-            p.fP[target_id] = 1.0*np.eye(self.feature_dim)
+            p.sP[target_id] = self.spatial_std*self.spatial_std*np.eye(self.dim)
+            p.fP[target_id] = self.feature_std*self.feature_std*np.eye(self.feature_dim)

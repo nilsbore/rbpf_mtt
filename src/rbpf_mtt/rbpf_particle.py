@@ -5,7 +5,9 @@ from cartesian import cartesian_inds
 
 def gauss_pdf(y, m, P):
     d = y - m
-    denom = math.sqrt(2.*math.pi*np.linalg.det(P))
+    print y
+    dim = len(y)
+    denom = math.sqrt((2.*math.pi)**dim*np.linalg.det(P))
     if denom < 0.00001:
         return 0.
     return 1./denom*math.exp(-0.5*np.dot(d, np.linalg.solve(P, d)))
@@ -13,7 +15,10 @@ def gauss_pdf(y, m, P):
 # this is in principle just a Kalman filter over all the states
 class RBPFMParticle(object):
 
-    def __init__(self, spatial_dim, feature_dim, nbr_targets):
+    def __init__(self, spatial_dim, feature_dim, nbr_targets, spatial_std, feature_std):
+
+        self.spatial_std = spatial_std
+        self.feature_std = feature_std
 
         self.c = [] # the last assocations, can be dropped when new time arrives
         self.sm = np.zeros((nbr_targets, spatial_dim)) # the Kalman filter means
@@ -48,7 +53,7 @@ class RBPFMParticle(object):
             return 1.
 
         j = self.associations[observation_id]
-        sR = spatial_measurement_noise*np.identity(spatial_dim)
+        sR = self.spatial_std*self.spatial_std*np.identity(spatial_dim)
         neg_likelihood = gauss_pdf(spatial_measurement, self.sm[j], sR)
 
         return 1. - neg_likelihood
@@ -70,8 +75,8 @@ class RBPFMParticle(object):
         # we somehow need to integrate the feature density into these clutter things
         pclutter = 0.00002 # probability of measurement originating from noise
         pdclutter = 0.00002 # probability density of clutter measurement
-        spatial_measurement_noise = 0.4
-        feature_measurement_noise = 0.2
+        spatial_var = self.spatial_std*self.spatial_std
+        feature_var = self.feature_std*self.feature_std
         pjump = 0.02
 
         # First find out the association
@@ -84,8 +89,8 @@ class RBPFMParticle(object):
         spatial_dim = self.sm.shape[1]
         feature_dim = self.fm.shape[1]
 
-        sR = spatial_measurement_noise*np.identity(spatial_dim) # measurement noise
-        fR = feature_measurement_noise*np.identity(feature_dim) # measurement noise
+        sR = spatial_var*np.identity(spatial_dim) # measurement noise
+        fR = feature_var*np.identity(feature_dim) # measurement noise
 
         pot_sm = np.zeros((nbr_targets, spatial_dim)) # the Kalman filter means
         pot_fm = np.zeros((nbr_targets, feature_dim))
@@ -230,16 +235,16 @@ class RBPFMParticle(object):
         # we somehow need to integrate the feature density into these clutter things
         pclutter = 0.0001 # probability of measurement originating from noise
         pdclutter = 0.00001 # probability density of clutter measurement
-        spatial_measurement_noise = 0.4
-        feature_measurement_noise = 0.4
-        pjump = 0.01
+        spatial_var = self.spatial_std*self.spatial_std
+        feature_var = self.feature_std*self.feature_std
+        pjump = 0.001
 
         nbr_targets = self.sm.shape[0]
         spatial_dim = self.sm.shape[1]
         feature_dim = self.fm.shape[1]
 
-        sR = spatial_measurement_noise*np.identity(spatial_dim) # measurement noise
-        fR = feature_measurement_noise*np.identity(feature_dim) # measurement noise
+        sR = spatial_var*np.identity(spatial_dim) # measurement noise
+        fR = feature_var*np.identity(feature_dim) # measurement noise
 
         # Can we have 4-dimensional matrix in numpy, YES WE CAN!
         pot_sm = np.zeros((nbr_observations, nbr_targets, spatial_dim)) # the Kalman filter means
@@ -341,7 +346,7 @@ class RBPFMParticle(object):
 
             # so what happens here if i ==
             if i == nbr_targets+1:
-                weights_update *= 50.*pjump
+                weights_update *= 5.*pjump
             else:
                 weights_update *= likelihoods[k, i]/pc[k, i]
 

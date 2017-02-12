@@ -23,6 +23,8 @@ class SmootherNode(object):
 
         self.nbr_targets = rospy.get_param('~number_targets', 2)
         self.publish_maps = rospy.get_param('~publish_maps', True)
+        self.spatial_std = rospy.get_param('~spatial_std', 0.63)
+        self.feature_std = rospy.get_param('~feature_std', 0.45)
 
         self.smoother = RBPFMTTSmoother(self.nbr_targets, 100, 4, 10)
         self.initialized = np.zeros((self.nbr_targets,), dtype=bool)
