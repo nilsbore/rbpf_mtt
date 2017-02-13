@@ -76,18 +76,20 @@ class RBPFMTTSmoother(object):
         spatial_dim = 2
         feature_dim = self.feature_dim
 
-        spatial_measurement_noise = 0.4
+        spatial_var = self.filter.spatial_std*self.filter.spatial_std
+        feature_var = self.filter.feature_std*self.filter.feature_std
         feature_measurement_noise = 0.2
 
-        sR = spatial_measurement_noise*np.identity(spatial_dim) # measurement noise
-        fR = feature_measurement_noise*np.identity(feature_dim) # measurement noise
+        sR = spatial_var*np.identity(spatial_dim) # measurement noise
+        fR = feature_var*np.identity(feature_dim) # measurement noise
 
-        spatial_process_noise = 1.5
-        feature_process_noise = 0.1
+        spatial_process_noise = 0. # no process noise!
+        feature_process_noise = 0. # no process noise!
 
         sQ = np.identity(spatial_dim) # process noise
         fQ = np.identity(feature_dim) # process noise
 
+        # NOTE: DONE
         for s in range(0, self.nbr_backward_sims):
 
             print "Running backward simulation: ", s
@@ -95,6 +97,7 @@ class RBPFMTTSmoother(object):
             # sample the latent state with probability of the last weights
             # weights are always normalized in the update equation
             # NOTE: here we just sample 1 particle
+            # NOTE: DONE
             i = np.random.choice(self.nbr_particles, p=self.filter.weights)
             for k in range(self.nbr_timesteps-1, -1, -1):
                 # Computing the Kalman filter recursions
@@ -111,12 +114,18 @@ class RBPFMTTSmoother(object):
                 # m_k = m^-_k + K_k [y_k - H(u_k) m^-_k]
                 # P_k = P^-_k - K_k S_k K^T_k
 
-                smM = np.zeros((self.nbr_targets, spatial_dim)) # the Kalman filter means
-                fmM = np.zeros((self.nbr_targets, feature_dim))
-                sPM = np.zeros((self.nbr_targets, spatial_dim, spatial_dim)) # the Kalman filter covariances
-                fPM = np.zeros((self.nbr_targets, feature_dim, feature_dim))
-                wM = np.zeros((self.nbr_particles,))
+                #
+                #smM = np.zeros((self.nbr_targets, spatial_dim)) # the Kalman filter means
+                #fmM = np.zeros((self.nbr_targets, feature_dim))
+                #sPM = np.zeros((self.nbr_targets, spatial_dim, spatial_dim)) # the Kalman filter covariances
+                #fPM = np.zeros((self.nbr_targets, feature_dim, feature_dim))
 
+                # these are the updated weights for timestep k, should they
+                # be maintained and updated across smoothing iterations? NO!
+                # NOTE: DONE
+                wm = np.zeros((self.nbr_particles,))
+
+                # NOTE: DONE
                 for l in range(0, self.nbr_particles):
 
                     # for j in range(0, nbr_targets):
@@ -138,9 +147,12 @@ class RBPFMTTSmoother(object):
                     #print len(self.timestep_particles), len(self.timestep_particles[k]), len(c)
                     if len(self.timestep_particles[k][l].c) == 0:
                         pclutter = 0.01
-                        wM[l] = self.timestep_weights[k, l] * pclutter
+                        wm[l] = self.timestep_weights[k, l] * pclutter
                         continue
 
+                    # Right, so the only thing we update in the
+                    # linear part is typically this, though we need
+                    # to also keep track of the ones that were not updated
                     j = self.timestep_particles[k][l].c[-1] # this should be the target associated with this measurement
                     # TODO: of course, we don't know this since it might also be that it was associated with noise
                     # NOTE: Shouldn't this be k-1?
@@ -176,6 +188,8 @@ class RBPFMTTSmoother(object):
                     # so, in other words, we need to compute this probability for every particle
                     # do we also need to compute the kalman covariances for every particle? probably...
 
+                    # the easiest thing would be to actually store the whole likelihoods ...
+                    # but that would mean we need to know e.g. if it jumped during a step, right?
                     pc = 0.
                     # so, probability of i given l
                     if i in self.timestep_particles[k][l].c:
@@ -198,12 +212,12 @@ class RBPFMTTSmoother(object):
                     # The question arises again, which measurement should we use?
 
                     # TODO: check if it's actually these sm, fm, sP, fP that we should use
-                    wM[l] = self.timestep_weights[k, l] * pc * \
+                    wm[l] = self.timestep_weights[k, l] * pc * \
                             gauss_pdf(self.timestep_particles[k][l].sm[j], sm,
                                       self.timestep_particles[k][l].sP[j] + sP) * \
                             gauss_pdf(self.timestep_particles[k][l].fm[j], fm,
                                       self.timestep_particles[k][l].fP[j] + fP)
 
-                wM = 1./np.sum(wM)*wM
+                wm = 1./np.sum(wm)*wm
                 # Sample u^~_k = u^(i)_k with probability w^(i)_k|k+1
-                i = np.random.choice(self.nbr_particles, p=wM)
+                i = np.random.choice(self.nbr_particles, p=wm)

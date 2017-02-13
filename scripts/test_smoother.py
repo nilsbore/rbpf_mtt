@@ -142,6 +142,14 @@ class SmootherNode(object):
         except rospy.ServiceException, e:
             print "Service call failed: %s"%e
 
+        smoothed_gmms = particles_to_gmms(particles, weights, self.nbr_targets)
+        rospy.wait_for_service('smoother_publish_gmm_maps')
+        try:
+            publish_maps = rospy.ServiceProxy('smoother_publish_gmm_maps', PublishGMMMaps)
+            publish_maps(smoothed_gmms)
+        except rospy.ServiceException, e:
+            print "Service call failed: %s"%e
+
 
     def smooth_callback(self, req):
 

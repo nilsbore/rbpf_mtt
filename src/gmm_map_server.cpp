@@ -65,17 +65,20 @@ public:
     double map_origin_y;
     double map_res;
 
+    string map_namespace;
+
     GMMMapServer() : n()
     {
         ros::NodeHandle pn("~");
         pn.param<int>("number_targets", nbr_targets, 4);
+        pn.param<string>("namespace", map_namespace, "");
 
         pubs.resize(nbr_targets);
         for (int j = 0; j < nbr_targets; ++j) {
-            pubs[j] = n.advertise<geometry_msgs::PoseArray>(string("object_particles_") + to_string(j), 1, true); // latching
+            pubs[j] = n.advertise<geometry_msgs::PoseArray>(map_namespace + "object_particles_" + to_string(j), 1, true); // latching
         }
 
-        ready_pub = n.advertise<std_msgs::Empty>("map_ready", 1);
+        ready_pub = n.advertise<std_msgs::Empty>(map_namespace + "map_ready", 1);
 
         nav_msgs::OccupancyGrid::ConstPtr global_costmap_msg = ros::topic::waitForMessage<nav_msgs::OccupancyGrid>("/map", n, ros::Duration(5));
         if (!global_costmap_msg) {
@@ -103,15 +106,15 @@ public:
         }
 
         for (int j = 0; j < nbr_targets; ++j) {
-            string topic_name = string("object_probabilities_") + to_string(j);
+            string topic_name = map_namespace + "object_probabilities_" + to_string(j);
             costmap_publishers.push_back(new costmap_2d::Costmap2DPublisher(&n, &costmaps[j], "/map", topic_name, true));
         }
 
         ROS_INFO("DONE INITIALIZING COSTMAPS");
 
-        sub = n.subscribe("filter_gmms", 1, &GMMMapServer::callback, this);
-        service = n.advertiseService("publish_gmm_map", &GMMMapServer::service_callback, this);//bpf_mtt::PublishGMMMap);
-        multi_service = n.advertiseService("publish_gmm_maps", &GMMMapServer::multi_service_callback, this);
+        sub = n.subscribe(map_namespace + "filter_gmms", 1, &GMMMapServer::callback, this);
+        service = n.advertiseService(map_namespace + "publish_gmm_map", &GMMMapServer::service_callback, this);//bpf_mtt::PublishGMMMap);
+        multi_service = n.advertiseService(map_namespace + "publish_gmm_maps", &GMMMapServer::multi_service_callback, this);
     }
 
     /*

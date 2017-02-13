@@ -50,6 +50,10 @@
     <node pkg="rbpf_mtt" type="gmm_map_server" name="gmm_map_server" output="screen" respawn="true">
         <param name="number_targets" value="$(arg number_targets)"/>
     </node>
+    <node pkg="rbpf_mtt" type="gmm_map_server" name="gmm_smoother_map_server" output="screen" respawn="true">
+        <param name="number_targets" value="$(arg number_targets)"/>
+        <param name="namespace" value="smoother_"/>
+    </node>
 
     <node pkg="rbpf_mtt" type="measurement_vis_server.py" name="measurement_vis_server" output="screen" respawn="true">
         <param name="number_targets" value="$(arg number_targets)"/>

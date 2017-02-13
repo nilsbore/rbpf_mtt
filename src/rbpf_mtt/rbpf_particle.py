@@ -33,6 +33,8 @@ class RBPFMParticle(object):
         self.nbr_noise = 0
         self.nbr_assoc = 0
         self.target_jumps = np.zeros((nbr_targets,))
+
+        #self.current_
         # the way this is supposed to work is that, when we sample a new c, we can only do it within one set
 
     def predict(self, measurement_partition=None):
@@ -74,6 +76,8 @@ class RBPFMParticle(object):
         if time != self.last_time:
             self.c = []
             self.last_time = time
+
+
 
         # we somehow need to integrate the feature density into these clutter things
         pclutter = 0.00002 # probability of measurement originating from noise
@@ -290,7 +294,7 @@ class RBPFMParticle(object):
 
             # let's
 
-            pc[k, :nbr_targets] = (1.-pclutter)*likelihoods[k, :nbr_targets]
+            pc[k, :nbr_targets] = (1.-pclutter)*likelihoods[k, :nbr_targets] # + pclutter?
             pc[k, nbr_targets] = pclutter*likelihoods[k, nbr_targets]
             pc[k, nbr_targets+1] = pjump
             pc[k] = 1./np.sum(pc[k])*pc[k]
