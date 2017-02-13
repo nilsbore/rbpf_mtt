@@ -24,6 +24,7 @@ class RBPFMTTFilter(object):
 
         self.resampled = False
         self.time_since_resampling = 0
+        self.effective_sample_sizes = []
 
     def effective_sample_size(self):
 
@@ -152,15 +153,19 @@ class RBPFMTTFilter(object):
         plt.cla()
         #plt.show()
 
-        if self.time_since_resampling > 4:
+        if self.effective_sample_size() < 0.8*float(self.nbr_particles):
             self.multinomial_resample()
             #self.systematic_resample()
-            pass
         else:
             self.time_since_resampling += 1
 
         print self.last_time
         print time
+        self.effective_sample_sizes.append(self.effective_sample_size())
+        plt.scatter(np.arange(0, len(self.effective_sample_sizes)), np.array(self.effective_sample_sizes), marker="*", color='red')
+        plt.savefig("samples.png")
+        plt.clf()
+        plt.cla()
 
     def initialize_target(self, target_id, spatial_measurement, feature_measurement):
 
