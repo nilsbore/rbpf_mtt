@@ -99,6 +99,7 @@ class RBPFMTTSmoother(object):
             # NOTE: here we just sample 1 particle
             # NOTE: DONE
             i = np.random.choice(self.nbr_particles, p=self.filter.weights)
+            ci = self.particles[self.nbr_timesteps-1][i].c[-1]
             for k in range(self.nbr_timesteps-1, -1, -1):
                 # Computing the Kalman filter recursions
                 # Note: A - process update = I
@@ -153,58 +154,61 @@ class RBPFMTTSmoother(object):
                     # Right, so the only thing we update in the
                     # linear part is typically this, though we need
                     # to also keep track of the ones that were not updated
-                    j = self.timestep_particles[k][l].c[-1] # this should be the target associated with this measurement
-                    # TODO: of course, we don't know this since it might also be that it was associated with noise
-                    # NOTE: Shouldn't this be k-1?
-                    smm = self.timestep_particles[k][l].sm[j]
-                    # this is the predict update
-                    sPm = self.timestep_particles[k][l].sP[j] + sQ
-                    sSm = sPm + sR
-                    # this is basically the same as the update
-                    sKm = np.linalg.solve(sSm, sPm)
-                    # the question is, what is meas here?
-                    # hmm, I guess our measurement model might actually depend on c..., i.e. 0 for some
-                    # or rather, how can we motivate this being the meas indicated by c?
-                    # right, we only update the part indicated by c, so the measurement model
-                    # actually transforms down the big state vector quite a bit
-                    sm = smm + np.dot(sKm, self.spatial_measurements[k] - smm)
-                    sP = sPm - np.dot(sKm, np.dot(sSm, sKm.transpose()))
+                    #j = self.timestep_particles[k][l].c[-1] # this should be the target associated with this measurement
 
-                    fmm = self.timestep_particles[k][l].fm[j]
-                    fPm = self.timestep_particles[k][l].fP[j] + fQ
-                    fSm = fPm + fR
-                    fKm = np.linalg.solve(fSm, fPm)
-                    # the question is, what is meas here?
-                    # hmm, I guess our measurement model might actually depend on c..., i.e. 0 for some
-                    # or rather, how can we motivate this being the meas indicated by c?
-                    # right, we only update the part indicated by c, so the measurement model
-                    # actually transforms down the big state vector quite a bit
-                    fm = fmm + np.dot(fKm, self.feature_measurements[k] - fmm)
-                    fP = fPm - np.dot(fKm, np.dot(fSm, fKm.transpose()))
+                    for j in self.timestep_particles[k][l].c:
 
-                    # This is interesting, now we need to compute p(u^~_k+1 | u^(i)_k)
-                    # What is u^~_k+1 ???
-                    # Oh, right, it's the sampled latent variable of the previous iteration
-                    # so, in other words, we need to compute this probability for every particle
-                    # do we also need to compute the kalman covariances for every particle? probably...
+                        # TODO: of course, we don't know this since it might also be that it was associated with noise
+                        # NOTE: Shouldn't this be k-1?
+                        smm = self.timestep_particles[k][l].sm[j]
+                        # this is the predict update
+                        sPm = self.timestep_particles[k][l].sP[j] + sQ
+                        sSm = sPm + sR
+                        # this is basically the same as the update
+                        sKm = np.linalg.solve(sSm, sPm)
+                        # the question is, what is meas here?
+                        # hmm, I guess our measurement model might actually depend on c..., i.e. 0 for some
+                        # or rather, how can we motivate this being the meas indicated by c?
+                        # right, we only update the part indicated by c, so the measurement model
+                        # actually transforms down the big state vector quite a bit
+                        sm = smm + np.dot(sKm, self.spatial_measurements[k] - smm)
+                        sP = sPm - np.dot(sKm, np.dot(sSm, sKm.transpose()))
 
-                    # the easiest thing would be to actually store the whole likelihoods ...
-                    # but that would mean we need to know e.g. if it jumped during a step, right?
-                    pc = 0.
-                    # so, probability of i given l
-                    if i in self.timestep_particles[k][l].c:
-                        #0! unless, TODO: the timestep is different for i...
+                        fmm = self.timestep_particles[k][l].fm[j]
+                        fPm = self.timestep_particles[k][l].fP[j] + fQ
+                        fSm = fPm + fR
+                        fKm = np.linalg.solve(fSm, fPm)
+                        # the question is, what is meas here?
+                        # hmm, I guess our measurement model might actually depend on c..., i.e. 0 for some
+                        # or rather, how can we motivate this being the meas indicated by c?
+                        # right, we only update the part indicated by c, so the measurement model
+                        # actually transforms down the big state vector quite a bit
+                        fm = fmm + np.dot(fKm, self.feature_measurements[k] - fmm)
+                        fP = fPm - np.dot(fKm, np.dot(fSm, fKm.transpose()))
+
+                        # This is interesting, now we need to compute p(u^~_k+1 | u^(i)_k)
+                        # What is u^~_k+1 ???
+                        # Oh, right, it's the sampled latent variable of the previous iteration
+                        # so, in other words, we need to compute this probability for every particle
+                        # do we also need to compute the kalman covariances for every particle? probably...
+
+                        # the easiest thing would be to actually store the whole likelihoods ...
+                        # but that would mean we need to know e.g. if it jumped during a step, right?
                         pc = 0.
-                    else:
-                        # to compute this, we need to look at the measurement likelihoods...
-                        # it would probably be good to save them for this reason...
-                        # the reason for this is that we don't know the normalization...
-                        # so, in reality, we could actually limit ourselves to saving normalization?
-                        # I think no, because we need the Kalman updates to compute the likelihoods?
-                        # p(i | l)
-                        # this is actually only part of it, we need the clutter and jump stuff as well
-                        pc = gauss_pdf(self.spatial_measurements[k], self.timestep_particles[k][l].sm[j], sSm) * \
-                             gauss_pdf(self.feature_measurements[k], self.timestep_particles[k][l].fm[j], fSm)
+                        # so, probability of i given l
+                        if i in self.timesteps[k+1] == self.timesteps[k] and self.timestep_particles[k][l].c:
+                            #0! unless, TODO: the timestep is different for i...
+                            pc = 0.
+                        else:
+                            # to compute this, we need to look at the measurement likelihoods...
+                            # it would probably be good to save them for this reason...
+                            # the reason for this is that we don't know the normalization...
+                            # so, in reality, we could actually limit ourselves to saving normalization?
+                            # I think no, because we need the Kalman updates to compute the likelihoods?
+                            # p(i | l)
+                            # this is actually only part of it, we need the clutter and jump stuff as well
+                            pc = gauss_pdf(self.spatial_measurements[k], self.timestep_particles[k][l].sm[j], sSm) * \
+                                 gauss_pdf(self.feature_measurements[k], self.timestep_particles[k][l].fm[j], fSm)
 
                     # Smoother weights update
                     # w^(i)_k|k+1 \sim w^(i)_k p(u^~_k+1 | u^(i)_k)  |det A(u^(i)_k)|^-1
