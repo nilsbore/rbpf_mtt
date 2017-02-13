@@ -6,7 +6,7 @@ from rbpf_mtt.msg import GMMPoses, ObjectMeasurement
 from rbpf_mtt.srv import PublishGMMMap, PublishGMMMaps
 from rbpf_mtt.rbpf_filter import RBPFMTTFilter
 from rbpf_mtt.rbpf_smoother import RBPFMTTSmoother
-from rbpf_mtt.rbpf_vis import filter_to_gmms, particles_to_gmms
+from rbpf_mtt.rbpf_vis import filter_to_gmms, particles_to_gmms, estimates_to_markers
 from geometry_msgs.msg import PoseWithCovariance
 from visualization_msgs.msg import Marker, MarkerArray
 from std_msgs.msg import Empty, Int32
@@ -20,6 +20,7 @@ class SmootherNode(object):
         self.gmm_pub = rospy.Publisher('filter_gmms', GMMPoses, queue_size=10)
         #self.poses_pub = rospy.Publisher('filter_poses', MarkerArray, queue_size=10)
         self.ready_pub = rospy.Publisher('filter_ready', Empty, queue_size=10)
+        self.estimates_pub = rospy.Publisher('estimate_markers', MarkerArray, queue_size=10)
 
         self.nbr_targets = rospy.get_param('~number_targets', 2)
         self.publish_maps = rospy.get_param('~publish_maps', True)
@@ -54,6 +55,11 @@ class SmootherNode(object):
 
         return spatial_measurement, feature_measurement
 
+    def publish_estimates(self):
+
+        poses, jumps = self.smoother.filter.estimate()
+        markers = estimates_to_markers(poses, jumps)
+        self.estimates_pub.publish(markers)
 
     # here we got a measurement, with pose and feature, time is in the pose header
     def callback(self, pose):
@@ -67,8 +73,6 @@ class SmootherNode(object):
 
         if pose.timestep != self.last_time:
             self.last_time = pose.timestep
-            if self.publish_maps:
-                self.par_visualize_marginals(self.smoother.filter)
             if is_init and self.joint_spatial_measurement is not None:
                 if self.joint_spatial_measurement.shape[0] > 4:
                     print "Size: ", self.joint_spatial_measurement.shape[0]
@@ -80,6 +84,9 @@ class SmootherNode(object):
                                            self.joint_feature_measurement,
                                            pose.timestep,
                                            pose.observation_id)
+                if self.publish_maps:
+                    self.par_visualize_marginals(self.smoother.filter)
+                self.publish_estimates()
             self.joint_spatial_measurement = None
             self.joint_feature_measurement = None
             self.joint_spatial_measurement = spatial_measurement

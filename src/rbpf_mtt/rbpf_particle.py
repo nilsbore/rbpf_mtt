@@ -32,6 +32,7 @@ class RBPFMParticle(object):
         self.nbr_jumps = 0
         self.nbr_noise = 0
         self.nbr_assoc = 0
+        self.target_jumps = np.zeros((nbr_targets,))
         # the way this is supposed to work is that, when we sample a new c, we can only do it within one set
 
     def predict(self, measurement_partition=None):
@@ -369,6 +370,7 @@ class RBPFMParticle(object):
                 self.sP[i] = 0.4*np.eye(spatial_dim)
                 self.did_jump = True
                 self.nbr_jumps += 1
+                self.target_jumps[i] += 1
             else:
                 self.sm[i] = pot_sm[k, i]
                 self.fm[i] = pot_fm[k, i]

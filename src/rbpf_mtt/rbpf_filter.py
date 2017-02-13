@@ -26,6 +26,18 @@ class RBPFMTTFilter(object):
         self.time_since_resampling = 0
         self.effective_sample_sizes = []
 
+    def estimate(self):
+
+        pos = np.zeros((self.nbr_targets, self.dim))
+        jumps = np.zeros((self.nbr_targets,))
+        for i, p in enumerate(self.particles):
+            pos += self.weights[i]*p.sm
+            jumps += self.weights[i]*p.target_jumps
+        pos = 1./np.sum(self.weights)*pos # should already be normalized
+        jumps = 1./np.sum(self.weights)*jumps
+
+        return pos, jumps
+
     def effective_sample_size(self):
 
         return 1./np.sum(np.square(self.weights)) # should this also be sqrt? no!

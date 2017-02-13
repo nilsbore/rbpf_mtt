@@ -94,6 +94,7 @@ class RBPFMTTSmoother(object):
 
             # sample the latent state with probability of the last weights
             # weights are always normalized in the update equation
+            # NOTE: here we just sample 1 particle
             i = np.random.choice(self.nbr_particles, p=self.filter.weights)
             for k in range(self.nbr_timesteps-1, -1, -1):
                 # Computing the Kalman filter recursions
@@ -142,6 +143,7 @@ class RBPFMTTSmoother(object):
 
                     j = self.timestep_particles[k][l].c[-1] # this should be the target associated with this measurement
                     # TODO: of course, we don't know this since it might also be that it was associated with noise
+                    # NOTE: Shouldn't this be k-1?
                     smm = self.timestep_particles[k][l].sm[j]
                     # this is the predict update
                     sPm = self.timestep_particles[k][l].sP[j] + sQ
