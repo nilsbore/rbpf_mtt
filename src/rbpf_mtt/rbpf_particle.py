@@ -5,7 +5,7 @@ from cartesian import cartesian_inds
 
 def gauss_pdf(y, m, P):
     d = y - m
-    print y
+    #print y
     dim = len(y)
     denom = math.sqrt((2.*math.pi)**dim*np.linalg.det(P))
     if denom < 0.00001:
