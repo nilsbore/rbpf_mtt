@@ -340,9 +340,9 @@ class RBPFMParticle(object):
                     nbr_sampled_jumps = counts[unique_list.index(nbr_targets+1)] - 1
                 print "Nbr sampled noise, targets: ", nbr_sampled_noise, nbr_targets
                 if len(unique) + nbr_sampled_noise + nbr_sampled_jumps == nbr_observations:
-                    for j in unique_list:
-                        if j != nbr_targets and j != nbr_targets+1:
-                            self.c.append(j)
+                    #for j in unique_list:
+                        #if j != nbr_targets and j != nbr_targets+1:
+                        #    self.c.append(j) # we could do this later for symmetry also
                     break
                 else:
                     print "Found several similar states: ", states
@@ -351,37 +351,31 @@ class RBPFMParticle(object):
 
         for k, i in enumerate(states):
 
-            # so what happens here if i ==
-            if i == nbr_targets+1:
-                weights_update *= pjump
-            else:
-                weights_update *= likelihoods[k, i]/pc[k, i]
-
             if i == nbr_targets:
                 self.nbr_noise += 1
-                #pass
-                #self.c = nbr_targets # measurement is noise
-                #we don't really care if it was associated with noise
-
+                self.c.append(nbr_targets) # to know that we observed noise!
+                weights_update *= likelihoods[k, i]/pc[k, i]
             elif i == nbr_targets+1:
                 feature_likelihoods_k = feature_likelihoods[k]
-                for j in self.c:
+                for j in filter(lambda x: x < nbr_targets, self.c):
                     feature_likelihoods_k[j] = 0.
                 feature_likelihoods_k = feature_likelihoods_k/np.sum(feature_likelihoods[k])
                 i = np.random.choice(nbr_targets, p=feature_likelihoods_k)
                 self.c.append(i)
                 self.sm[i] = spatial_measurements[k]
-                self.sP[i] = 0.4*np.eye(spatial_dim)
+                self.sP[i] = spatial_var*np.eye(spatial_dim)
                 self.did_jump = True
                 self.nbr_jumps += 1
                 self.target_jumps[i] += 1
+                weights_update *= pjump
             else:
                 self.sm[i] = pot_sm[k, i]
                 self.fm[i] = pot_fm[k, i]
                 self.sP[i] = pot_sP[k, i]
                 self.fP[i] = pot_fP[k, i]
-                #self.c.append(i)
+                self.c.append(i) # let's try to have it here instead of above
                 self.associations[observation_id] = i
                 self.nbr_assoc += 1
+                weights_update *= likelihoods[k, i]/pc[k, i]
 
         return weights_update
