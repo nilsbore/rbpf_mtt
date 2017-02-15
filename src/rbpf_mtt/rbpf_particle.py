@@ -240,7 +240,7 @@ class RBPFMParticle(object):
         nbr_observations = spatial_measurements.shape[0]
 
         # we somehow need to integrate the feature density into these clutter things
-        pclutter = 0.001 # probability of measurement originating from noise
+        pclutter = 0.0 # probability of measurement originating from noise
         pdclutter = 0.001 # probability density of clutter measurement
         spatial_var = self.spatial_std*self.spatial_std
         feature_var = self.feature_std*self.feature_std
@@ -340,9 +340,9 @@ class RBPFMParticle(object):
                     nbr_sampled_jumps = counts[unique_list.index(nbr_targets+1)] - 1
                 print "Nbr sampled noise, targets: ", nbr_sampled_noise, nbr_targets
                 if len(unique) + nbr_sampled_noise + nbr_sampled_jumps == nbr_observations:
-                    #for j in unique_list:
-                        #if j != nbr_targets and j != nbr_targets+1:
-                        #    self.c.append(j) # we could do this later for symmetry also
+                    for j in unique_list:
+                        if j != nbr_targets and j != nbr_targets+1:
+                            self.c.append(j) # we need to this this here to be sure to not sample jumps later
                     break
                 else:
                     print "Found several similar states: ", states
@@ -357,11 +357,14 @@ class RBPFMParticle(object):
                 weights_update *= likelihoods[k, i]/pc[k, i]
             elif i == nbr_targets+1:
                 feature_likelihoods_k = feature_likelihoods[k]
-                for j in filter(lambda x: x < nbr_targets, self.c):
-                    feature_likelihoods_k[j] = 0.
+                for j in filter(lambda x: x != nbr_targets, self.c): # filter noise
+                    if j < nbr_targets: # normal association
+                        feature_likelihoods_k[j] = 0.
+                    else: # jump association
+                        feature_likelihoods_k[j-nbr_targets-1] = 0.
                 feature_likelihoods_k = feature_likelihoods_k/np.sum(feature_likelihoods[k])
                 i = np.random.choice(nbr_targets, p=feature_likelihoods_k)
-                self.c.append(i)
+                self.c.append(nbr_targets + 1 + i) # offset for jump objects
                 self.sm[i] = spatial_measurements[k]
                 self.sP[i] = spatial_var*np.eye(spatial_dim)
                 self.did_jump = True
@@ -373,7 +376,7 @@ class RBPFMParticle(object):
                 self.fm[i] = pot_fm[k, i]
                 self.sP[i] = pot_sP[k, i]
                 self.fP[i] = pot_fP[k, i]
-                self.c.append(i) # let's try to have it here instead of above
+                #self.c.append(i) # this can't be here since we might sample a jump to this before then
                 self.associations[observation_id] = i
                 self.nbr_assoc += 1
                 weights_update *= likelihoods[k, i]/pc[k, i]
