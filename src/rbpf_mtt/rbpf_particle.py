@@ -7,6 +7,9 @@ def gauss_pdf(y, m, P):
     d = y - m
     #print y
     dim = len(y)
+    det = np.linalg.det(P)
+    if det < 0.0000001:
+        return 0.
     denom = math.sqrt((2.*math.pi)**dim*np.linalg.det(P))
     if denom < 0.00001:
         return 0.

@@ -74,6 +74,33 @@ class SmootherServer(object):
         self._as.start()
         rospy.loginfo(" ...done")
 
+    def do_load(self, observations_file):
+        self.load_observation_sequence(observations_file)
+        self.is_smoothed = False
+        self.is_through = False
+        self.is_playing = True
+        self.iteration = 0
+
+    def do_autostep(self):
+        SmootherServer._result.response = "Playing back!"
+        self.autostep = True
+        self.step()
+
+    def do_smooth(self):
+        SmootherServer._feedback.feedback = "Smoothing in progress..."
+        SmootherServer._result.response = "Smoothing done!"
+        try:
+            smooth_estimates = rospy.ServiceProxy('smooth_estimates', EmptySrv)
+            smooth_estimates()
+        except rospy.ServiceException, e:
+            SmootherServer._result.response = "Is smoothing server running?"
+            print "Service call failed: %s"%e
+        #self._as.action_server.publish_feedback()
+        self.is_smoothed = True
+        self.is_through = False
+        self.iteration = 0
+        self.is_playing = True
+
     def execute_callback(self, goal):
 
         SmootherServer._result.response = "Success!"
@@ -87,11 +114,7 @@ class SmootherServer(object):
         elif goal.action == 'save':
             self.save_observation_sequence(goal.observations_file)
         elif goal.action == 'load':
-            self.load_observation_sequence(goal.observations_file)
-            self.is_smoothed = False
-            self.is_through = False
-            self.is_playing = True
-            self.iteration = 0
+            self.do_load(goal.observations_file)
         elif goal.action == 'replay':
             self.is_playing = True
             self.iteration = 0
@@ -99,38 +122,16 @@ class SmootherServer(object):
             self.autostep = False
             self.step()
         elif goal.action == 'autostep':
-            #rospy.Subscriber("filter_ready", Empty, self.step_callback)
-            SmootherServer._result.response = "Playing back!"
-            self.autostep = True
-            self.step()
-            #r = rospy.Rate(10.)
-            #while not rospy.is_shutdown():
-            #    r.sleep()
-            #    if self.is_through:
-            #        break
+            self.do_autostep()
         elif goal.action == 'smooth':
-            SmootherServer._feedback.feedback = "Smoothing in progress..."
-            SmootherServer._result.response = "Smoothing done!"
-            try:
-                smooth_estimates = rospy.ServiceProxy('smooth_estimates', EmptySrv)
-                smooth_estimates()
-            except rospy.ServiceException, e:
-                SmootherServer._result.response = "Is smoothing server running?"
-                print "Service call failed: %s"%e
-            #self._as.action_server.publish_feedback()
-            self.is_smoothed = True
-            self.is_through = False
-            self.iteration = 0
-            self.is_playing = True
+            self.do_smooth()
         elif goal.action == 'autoload':
-            self.load_observation_sequence(goal.observations_file)
-            self.is_smoothed = False
-            self.is_through = False
-            self.is_playing = True
-            self.iteration = 0
-            SmootherServer._result.response = "Playing back!"
-            self.autostep = True
-            self.step()
+            self.do_load(goal.observations_file)
+            self.do_autostep()
+        #elif goal.action == 'autosmooth':
+        #    self.do_load(goal.observations_file)
+        #    self.do_autostep()
+        #    self.do_smooth()
         else:
             SmootherServer._result.response = "Valid actions are: 'record', 'save', 'load', 'replay', 'step', 'autostep'"
             #SmootherServer._result.success = False

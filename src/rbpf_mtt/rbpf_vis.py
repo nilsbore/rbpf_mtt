@@ -65,6 +65,32 @@ def filter_to_gmms(rbpfilter, initialized=None):
 
     return gmms
 
+def smoother_to_gmms(rbpsmoother, timestep):
+
+    gmms = []
+
+    for j in range(0, rbpfilter.nbr_targets):
+        poses = GMMPoses()
+        poses.id = j
+        for s in range(0, rbpsmoother.nbr_backward_sims):
+            poses.weights.append(1.)
+            m = rbpsmoother.sms[s, timestep, j]
+            P = rbpsmoother.sPs[s, timestep, j]
+            pose = PoseWithCovariance()
+            pose.pose.position.x = m[0]
+            pose.pose.position.y = m[1]
+            pose.pose.position.z = 0.
+            # covariance is row-major
+            pose.covariance[0] = P[0, 0]
+            pose.covariance[1] = P[0, 1]
+            pose.covariance[6] = P[1, 0]
+            pose.covariance[7] = P[1, 1]
+            poses.modes.append(pose)
+
+        gmms.append(poses)
+
+    return gmms
+
 def particles_to_gmms(particles, weights, nbr_targets):
 
     gmms = []

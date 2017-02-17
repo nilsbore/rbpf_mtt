@@ -186,3 +186,5 @@ class RBPFMTTFilter(object):
             p.fm[target_id] = feature_measurement
             p.sP[target_id] = self.spatial_std*self.spatial_std*np.eye(self.dim)
             p.fP[target_id] = self.feature_std*self.feature_std*np.eye(self.feature_dim)
+            p.c.append(target_id)
+            p.last_time = 0
