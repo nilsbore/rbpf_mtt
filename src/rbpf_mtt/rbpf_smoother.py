@@ -311,6 +311,12 @@ class RBPFMTTSmoother(object):
             sPbk1 = np.array(self.timestep_particles[self.nbr_timesteps-1][i].sP) #np.zeros((self.nbr_targets, spatial_dim, spatial_dim))
             fmbk1 = np.array(self.timestep_particles[self.nbr_timesteps-1][i].fm) #np.zeros((self.nbr_targets, feature_dim))
             fPbk1 = np.array(self.timestep_particles[self.nbr_timesteps-1][i].fP) #np.zeros((self.nbr_targets, feature_dim, feature_dim))
+            for j in range(0, nbr_targets):
+                self.sms[s, :, j] = np.array(smbk1[j])
+                self.sPs[s, :, j] = np.array(sPbk1[j])
+                self.fms[s, :, j] = np.array(fmbk1[j])
+                self.fPs[s, :, j] = np.array(fPbk1[j])
+
             cache_i, cache_smbk1, cache_sPbk1, cache_fmbk1, cache_fPbk1 = \
                 i, np.array(smbk1), np.array(sPbk1), np.array(fmbk1), np.array(fPbk1)
             current_timestep = self.timesteps[self.nbr_timesteps-1]
@@ -351,10 +357,10 @@ class RBPFMTTSmoother(object):
                     continue
 
                 smsk, sPsk, fmsk, fPsk = self.compute_smoothed_estimates(k, i, j, smbk1, sPbk1, fmbk1, fPbk1)
-                self.sms[s, k, j] = np.array(smsk)
-                self.sPs[s, k, j] = np.array(sPsk)
-                self.fms[s, k, j] = np.array(fmsk)
-                self.fPs[s, k, j] = np.array(fPsk)
+                self.sms[s, :k+1, j] = np.array(smsk)
+                self.sPs[s, :k+1, j] = np.array(sPsk)
+                self.fms[s, :k+1, j] = np.array(fmsk)
+                self.fPs[s, :k+1, j] = np.array(fPsk)
                 self.cs[s, k] = self.timestep_particles[k][i].c[self.cindex[k]]
 
                 k -= 1
