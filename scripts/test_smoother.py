@@ -6,7 +6,7 @@ from rbpf_mtt.msg import GMMPoses, ObjectMeasurement
 from rbpf_mtt.srv import PublishGMMMap, PublishGMMMaps
 from rbpf_mtt.rbpf_filter import RBPFMTTFilter
 from rbpf_mtt.rbpf_smoother import RBPFMTTSmoother
-from rbpf_mtt.rbpf_vis import filter_to_gmms, particles_to_gmms, estimates_to_markers
+from rbpf_mtt.rbpf_vis import filter_to_gmms, particles_to_gmms, estimates_to_markers, smoother_to_gmms
 from geometry_msgs.msg import PoseWithCovariance
 from visualization_msgs.msg import Marker, MarkerArray
 from std_msgs.msg import Empty, Int32
@@ -132,9 +132,10 @@ class SmootherNode(object):
         except rospy.ServiceException, e:
             print "Service call failed: %s"%e
 
-    def par_visualize_smoothed_marginals(self, particles, weights):
+    def par_visualize_smoothed_marginals(self, timestep):
 
-        gmms = particles_to_gmms(particles, weights, self.nbr_targets)
+        gmms = particles_to_gmms(self.smoother.timestep_particles[timestep],
+            self.smoother.timestep_weights[timestep], self.nbr_targets)
         rospy.wait_for_service('publish_gmm_maps')
         try:
             publish_maps = rospy.ServiceProxy('publish_gmm_maps', PublishGMMMaps)
@@ -142,7 +143,7 @@ class SmootherNode(object):
         except rospy.ServiceException, e:
             print "Service call failed: %s"%e
 
-        smoothed_gmms = particles_to_gmms(particles, weights, self.nbr_targets)
+        smoothed_gmms = smoother_to_gmms(self.smoother, timestep)
         rospy.wait_for_service('smoother_publish_gmm_maps')
         try:
             publish_maps = rospy.ServiceProxy('smoother_publish_gmm_maps', PublishGMMMaps)
@@ -164,8 +165,7 @@ class SmootherNode(object):
         k = int(req.data)
         print "Timestep: ", k
 
-        self.par_visualize_smoothed_marginals(self.smoother.timestep_particles[k],
-                                              self.smoother.timestep_weights[k])
+        self.par_visualize_smoothed_marginals(k)
 
         e = Empty()
         self.ready_pub.publish(e)

@@ -69,7 +69,7 @@ def smoother_to_gmms(rbpsmoother, timestep):
 
     gmms = []
 
-    for j in range(0, rbpfilter.nbr_targets):
+    for j in range(0, rbpsmoother.nbr_targets):
         poses = GMMPoses()
         poses.id = j
         for s in range(0, rbpsmoother.nbr_backward_sims):
