@@ -69,6 +69,10 @@ def smoother_to_gmms(rbpsmoother, timestep):
 
     gmms = []
 
+    print rbpsmoother.timesteps[:rbpsmoother.nbr_timesteps]
+    print timestep
+    print rbpsmoother.nbr_timesteps # this should basically be similar to timestep, i.e. iteration in smoother_server
+
     for j in range(0, rbpsmoother.nbr_targets):
         poses = GMMPoses()
         poses.id = j

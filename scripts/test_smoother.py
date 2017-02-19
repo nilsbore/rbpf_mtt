@@ -33,11 +33,13 @@ class SmootherNode(object):
         self.service = rospy.Service('smooth_estimates', EmptySrv, self.smooth_callback)
 
         self.last_time = -1
+        self.last_observation_id = -1
         self.is_smoothed = False
 
         self.joint_spatial_measurement = None
         self.joint_feature_measurement = None
         self.all_timesteps = []
+        self.split_timesteps = [[]]
 
         rospy.Subscriber("filter_measurements", ObjectMeasurement, self.callback)
         rospy.Subscriber("sim_filter_measurements", ObjectMeasurement, self.callback)
@@ -61,6 +63,24 @@ class SmootherNode(object):
         markers = estimates_to_markers(poses, jumps)
         self.estimates_pub.publish(markers)
 
+    def add_measurements(self):
+
+        if np.all(self.initialized) and self.joint_spatial_measurement is not None:
+            if self.joint_spatial_measurement.shape[0] > 4:
+                print "Size: ", self.joint_spatial_measurement.shape[0]
+                print "Exiting..."
+                print self.all_timesteps
+                print self.timesteps
+                sys.exit()
+            self.smoother.joint_update(self.joint_spatial_measurement,
+                                       self.joint_feature_measurement,
+                                       self.last_time,
+                                       self.last_observation_id)
+            if self.publish_maps:
+                self.par_visualize_marginals(self.smoother.filter)
+            self.publish_estimates()
+
+
     # here we got a measurement, with pose and feature, time is in the pose header
     def callback(self, pose):
 
@@ -71,34 +91,25 @@ class SmootherNode(object):
         is_init = np.all(self.initialized)
         spatial_measurement, feature_measurement = self.measurements_from_pose(pose)
 
-        if pose.timestep != self.last_time:
-            self.last_time = pose.timestep
-            if is_init and self.joint_spatial_measurement is not None:
-                if self.joint_spatial_measurement.shape[0] > 4:
-                    print "Size: ", self.joint_spatial_measurement.shape[0]
-                    print "Exiting..."
-                    print self.all_timesteps
-                    print self.timesteps
-                    sys.exit()
-                self.smoother.joint_update(self.joint_spatial_measurement,
-                                           self.joint_feature_measurement,
-                                           pose.timestep,
-                                           pose.observation_id)
-                if self.publish_maps:
-                    self.par_visualize_marginals(self.smoother.filter)
-                self.publish_estimates()
+        if pose.timestep != self.last_time and pose.timestep != 0:
+            #self.last_time = pose.timestep
+            #self.last_observation_id = pose.observation_id
+            self.add_measurements()
             self.joint_spatial_measurement = None
             self.joint_feature_measurement = None
             self.joint_spatial_measurement = spatial_measurement
             self.joint_feature_measurement = feature_measurement
-            self.timesteps = []
+            self.timesteps = [ pose.timestep ]
             self.timesteps.append(pose.timestep)
+            self.split_timesteps.append([ pose.timestep ])
         elif is_init and pose.timestep != 0:
             self.joint_spatial_measurement = np.vstack((self.joint_spatial_measurement, spatial_measurement))
             self.joint_feature_measurement = np.vstack((self.joint_feature_measurement, feature_measurement))
             self.timesteps.append(pose.timestep)
+            self.split_timesteps[-1].append(pose.timestep)
 
         self.last_time = pose.timestep
+        self.last_observation_id = pose.observation_id
 
         print "time: ", pose.timestep
         #print "spatial measurement size: ", self.joint_spatial_measurement.shape
@@ -106,7 +117,7 @@ class SmootherNode(object):
         print self.initialized
         print pose.initialization_id
         print self.nbr_targets
-        if not is_init and pose.initialization_id != -1:
+        if not is_init and pose.initialization_id != -1: #and pose.timestep == 0:
             print "Not intialized, adding initialization..."
             self.smoother.initialize_target(pose.initialization_id, spatial_measurement, feature_measurement, pose.timestep)
             self.initialized[pose.initialization_id] = True
@@ -154,9 +165,15 @@ class SmootherNode(object):
 
     def smooth_callback(self, req):
 
+        # add everything that hasn't been added
+        self.add_measurements()
+
         self.smoother.smooth()
 
         self.is_smoothed = True
+
+        print "Smoothed, all timesteps: ", self.all_timesteps
+        print "Split timesteps: ", self.split_timesteps
 
         return ()
 

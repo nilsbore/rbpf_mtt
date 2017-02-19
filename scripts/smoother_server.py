@@ -141,6 +141,12 @@ class SmootherServer(object):
     def step_callback(self, msg):
 
         print "Got step callback!"
+        print "Iteration: ", self.iteration
+        print "Timesteps: ", self.timesteps
+        print "Nbr timesteps: ", len(self.timesteps)
+        if self.iteration < len(self.timesteps):
+            print "Timestamp: ", self.timesteps[self.iteration]
+
         if not self.autostep:
             return
 
@@ -193,7 +199,7 @@ class SmootherServer(object):
 
             self.iteration += 1
 
-            if not self.step_by_timestep or self.iteration >= len(self.timesteps) \
+            if (not self.step_by_timestep) or self.iteration >= len(self.timesteps) \
                or self.timesteps[self.iteration] != first_timestep:
                break
 
@@ -234,7 +240,20 @@ class SmootherServer(object):
         self.spatial_measurement_std = npzfile['spatial_measurement_std']
         self.feature_measurement_std = npzfile['feature_measurement_std']
 
+        inits = np.sum(self.timesteps == 0)
+        if inits > self.nbr_targets:
+            indices = np.arange(self.nbr_targets, inits, dtype=int)
+            self.spatial_measurements = np.delete(self.spatial_measurements, indices, axis=0)
+            self.feature_measurements = np.delete(self.feature_measurements, indices, axis=0)
+            self.timesteps = np.delete(self.timesteps, indices)
+            self.spatial_positions = np.delete(self.spatial_positions, indices, axis=0)
+            self.target_ids = np.delete(self.target_ids, indices)
+            self.observation_ids = np.delete(self.observation_ids, indices)
+
         SmootherServer._result.response = "Loaded observations at " + observations_file
+        print "Loaded observations sequence with timesteps: ", self.timesteps
+        print "Init positions: ", self.spatial_measurements[:self.nbr_targets]
+        print "Init features: ", self.feature_measurements[:self.nbr_targets]
 
         return True
 
