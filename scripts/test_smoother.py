@@ -97,8 +97,8 @@ class SmootherNode(object):
             self.add_measurements()
             self.joint_spatial_measurement = None
             self.joint_feature_measurement = None
-            self.joint_spatial_measurement = spatial_measurement
-            self.joint_feature_measurement = feature_measurement
+            self.joint_spatial_measurement = np.reshape(spatial_measurement, (1, -1))
+            self.joint_feature_measurement = np.reshape(feature_measurement, (1, -1))
             self.timesteps = [ pose.timestep ]
             self.timesteps.append(pose.timestep)
             self.split_timesteps.append([ pose.timestep ])

@@ -92,7 +92,7 @@ class RBPFMTTSmoother(object):
         nbr_targets = self.nbr_targets
 
         pclutter = 0.
-        pjump = 0.001
+        pjump = 0.01
 
         spatial_var = self.filter.spatial_std*self.filter.spatial_std
         feature_var = self.filter.feature_std*self.filter.feature_std
