@@ -2,7 +2,7 @@ SESSION=simulation
 # This is the workspace containing the ros packages that are needed
 # For this experiment, the repos rcv_bringup, rcv_common, rcv_description,
 # rcv_slam and rcv_localization should be enough
-WS_PATH="/home/nbore/instance_places/catkin_ws"
+WS_PATH="/home/nbore/Workspace/ros/catkin_ws"
 DB_PATH="/home/nbore/moving_objects_db"
 SOURCE_WS="${WS_PATH}/devel/setup.bash"
 # Built with the rcv_fuser_node from rcv_slam
@@ -28,7 +28,7 @@ tmux send-keys "rosrun rviz rviz"
 tmux select-window -t $SESSION:2
 tmux send-keys "source $SOURCE_WS" C-m
 #tmux send-keys "roslaunch quasimodo_retrieval retrieval.launch vocabulary_path:=/home/nbore/Data/tsc_semantic_maps/vocabulary"
-tmux send-keys "roslaunch rbpf_mtt test.launch map:=${WS_PATH}/src/temporal_instance_clustering/rbpf_mtt/maps/dynamic_map.yaml db_path:=${DB_PATH} number_targets:=2"
+tmux send-keys "roslaunch rbpf_mtt test.launch map:=${WS_PATH}/src/rbpf_mtt/maps/dynamic_map.yaml db_path:=${DB_PATH} number_targets:=4"
 
 
 tmux select-window -t $SESSION:3
