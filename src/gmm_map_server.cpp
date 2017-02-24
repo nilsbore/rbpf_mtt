@@ -132,7 +132,7 @@ public:
             return;
         }*/
 
-        Eigen::MatrixXd prob_accum = Eigen::MatrixXd::Zero(map_height, map_width);
+        Eigen::MatrixXd prob_accum = Eigen::MatrixXd::Zero(map_width, map_height);
 
         int map_x, map_y;
         for (size_t i = 0; i < dist.modes.size(); ++i) {
@@ -197,8 +197,8 @@ public:
 
         ROS_INFO_STREAM("Max probability: " << maxprob);
 
-        for (int i = 0; i < map_height; i++) {
-            for (int j = 0; j < map_width; j++) {
+        for (int i = 0; i < map_width; i++) {
+            for (int j = 0; j < map_height; j++) {
                 //costmap.setCost(i, j, uint8_t(prob_accum(i, j)));
                 costmaps[dist.id].setCost(i, j, uint8_t(prob_accum(i, j)));
             }
