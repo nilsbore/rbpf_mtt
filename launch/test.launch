@@ -33,6 +33,7 @@
         <param name="publish_maps" value="$(arg publish_maps)"/>
         <param name="spatial_std" value="$(arg spatial_std)"/>
         <param name="feature_std" value="$(arg feature_std)"/>
+        <param name="feature_dim" value="$(arg feature_dim)"/>
     </node>
     <node pkg="rbpf_mtt" type="smoother_server.py" name="smoother_server" output="screen" respawn="true" unless="$(arg test)">
         <param name="number_targets" value="$(arg number_targets)"/>

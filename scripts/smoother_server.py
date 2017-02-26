@@ -10,6 +10,7 @@ from geometry_msgs.msg import PoseWithCovariance, Pose, PoseArray
 from std_msgs.msg import Empty
 from std_srvs.srv import Empty as EmptySrv
 from std_msgs.msg import Int32
+from std_msgs.msg import String
 from visualization_msgs.msg import Marker, MarkerArray
 from rbpf_mtt.msg import ObservationDBAction, ObservationDBGoal, ObservationDBResult, ObservationDBFeedback
 import os
@@ -40,6 +41,8 @@ class SmootherServer(object):
         # N dimensions, this is probably not really needed
         self.observation_ids = np.zeros((max_iterations,), dtype=int)
 
+        self.cloud_paths = []
+
         self.target_poses = PoseArray()
 
         # We should probably save the feature and spatial noise used to generate the measurements
@@ -51,6 +54,7 @@ class SmootherServer(object):
         self.poses_pub = rospy.Publisher('set_target_poses', PoseArray, queue_size=10)
         self.obs_pub = rospy.Publisher('sim_filter_measurements', ObjectMeasurement, queue_size=10)
         self.smooth_pub = rospy.Publisher('smoother_vis', Int32, queue_size=10)
+        self.path_pub = rospy.Publisher('cloud_paths', String, queue_size=10)
 
         #self.initialized = np.zeros((self.nbr_targets,), dtype=bool)
 
@@ -182,6 +186,8 @@ class SmootherServer(object):
 
         self.poses_pub.publish(poses)
 
+        clouds_paths = ""
+
         while True:
 
             obs = ObjectMeasurement()
@@ -193,6 +199,11 @@ class SmootherServer(object):
             obs.observation_id = self.observation_ids[self.iteration]
             obs.timestep = self.timesteps[self.iteration]
 
+            if len(self.cloud_paths) > 0:
+                if len(clouds_paths) > 0:
+                    clouds_paths += ","
+                clouds_paths += self.cloud_paths[self.iteration]
+
             self.obs_pub.publish(obs)
             if self.is_smoothed:
                 self.smooth_pub.publish(self.iteration)
@@ -202,6 +213,8 @@ class SmootherServer(object):
             if (not self.step_by_timestep) or self.iteration >= len(self.timesteps) \
                or self.timesteps[self.iteration] != first_timestep:
                break
+
+        self.path_pub.publish(clouds_paths)
 
 
     def save_observation_sequence(self, observations_file):
@@ -239,6 +252,8 @@ class SmootherServer(object):
         self.observation_ids = npzfile['observation_ids']
         self.spatial_measurement_std = npzfile['spatial_measurement_std']
         self.feature_measurement_std = npzfile['feature_measurement_std']
+        if 'clouds' in npzfile:
+            self.cloud_paths = npzfile['clouds']
 
         inits = np.sum(self.timesteps == 0)
         if inits > self.nbr_targets:
