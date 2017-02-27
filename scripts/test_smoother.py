@@ -72,7 +72,7 @@ class SmootherNode(object):
                 print "Exiting..."
                 #print self.all_timesteps
                 #print self.timesteps
-                sys.exit()
+                #sys.exit()
             self.smoother.joint_update(self.joint_spatial_measurement,
                                        self.joint_feature_measurement,
                                        self.last_time,
