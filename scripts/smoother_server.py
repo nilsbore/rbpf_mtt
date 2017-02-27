@@ -51,10 +51,10 @@ class SmootherServer(object):
         self.feature_measurement_std = rospy.get_param('feature_measurement_std', 0.1)
 
         #self.gmm_pub = rospy.Publisher('filter_gmms', GMMPoses, queue_size=10)
-        self.poses_pub = rospy.Publisher('set_target_poses', PoseArray, queue_size=10)
-        self.obs_pub = rospy.Publisher('sim_filter_measurements', ObjectMeasurement, queue_size=10)
-        self.smooth_pub = rospy.Publisher('smoother_vis', Int32, queue_size=10)
-        self.path_pub = rospy.Publisher('cloud_paths', String, queue_size=10)
+        self.poses_pub = rospy.Publisher('set_target_poses', PoseArray, queue_size=50)
+        self.obs_pub = rospy.Publisher('sim_filter_measurements', ObjectMeasurement, queue_size=50)
+        self.smooth_pub = rospy.Publisher('smoother_vis', Int32, queue_size=50)
+        self.path_pub = rospy.Publisher('cloud_paths', String, queue_size=50)
 
         #self.initialized = np.zeros((self.nbr_targets,), dtype=bool)
 
@@ -146,7 +146,7 @@ class SmootherServer(object):
 
         print "Got step callback!"
         print "Iteration: ", self.iteration
-        print "Timesteps: ", self.timesteps
+        #print "Timesteps: ", self.timesteps
         print "Nbr timesteps: ", len(self.timesteps)
         if self.iteration < len(self.timesteps):
             print "Timestamp: ", self.timesteps[self.iteration]
@@ -197,6 +197,7 @@ class SmootherServer(object):
             obs.pose.pose.position.y = self.spatial_measurements[self.iteration, 1]
             obs.initialization_id = self.target_ids[self.iteration]
             obs.observation_id = self.observation_ids[self.iteration]
+            print "Publishing observation: ", self.iteration, " with timestep: ", self.timesteps[self.iteration], " and cloud: ", self.cloud_paths[self.iteration]
             obs.timestep = self.timesteps[self.iteration]
 
             if len(self.cloud_paths) > 0:
@@ -264,6 +265,8 @@ class SmootherServer(object):
             self.spatial_positions = np.delete(self.spatial_positions, indices, axis=0)
             self.target_ids = np.delete(self.target_ids, indices)
             self.observation_ids = np.delete(self.observation_ids, indices)
+            if len(self.cloud_paths) > 0:
+                self.cloud_paths = list(self.cloud_paths[:self.nbr_targets]) + list(self.cloud_paths[inits:])
 
         SmootherServer._result.response = "Loaded observations at " + observations_file
         print "Loaded observations sequence with timesteps: ", self.timesteps

@@ -29,9 +29,9 @@ class MeasurementVisServer(object):
 
     def __init__(self):
 
-        self.marker_pub = rospy.Publisher('measurement_markers', MarkerArray, queue_size=10)
-        self.positions_pub = rospy.Publisher('object_positions', ObjectMeasurement, queue_size=10)
-        self.target_pub = rospy.Publisher('get_target_poses', PoseArray, queue_size=10)
+        self.marker_pub = rospy.Publisher('measurement_markers', MarkerArray, queue_size=50)
+        self.positions_pub = rospy.Publisher('object_positions', ObjectMeasurement, queue_size=50)
+        self.target_pub = rospy.Publisher('get_target_poses', PoseArray, queue_size=50)
         #self.object_pub = rospy.Publisher('measurement_markers', MarkerArray, queue_size=10)'
 
         self.nbr_targets = self.nbr_targets = rospy.get_param('~number_targets', 2)
@@ -410,7 +410,7 @@ class MeasurementVisServer(object):
         if clicked_pose.negative_observation:
             text_marker.text = "Negative " + str(self.object_counters[clicked_pose.initialization_id])
         else:
-            text_marker.text = str(self.object_counters[clicked_pose.initialization_id])
+            text_marker.text = str(clicked_pose.timestep) #str(self.object_counters[clicked_pose.initialization_id])
         #text_marker.lifetime = rospy.Time(secs=1000)
 
         self.object_counters[clicked_pose.initialization_id] += 1

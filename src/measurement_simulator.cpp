@@ -48,9 +48,9 @@ public:
         initialized = false;
         current_object_id = 0;
         timestep = 0;
-        clicked_pub = n.advertise<rbpf_mtt::ObjectMeasurement>("filter_measurements", 10);
-        clicked_sub = n.subscribe("/move_base_simple/goal", 10, &MeasurementSimulator::clicked_callback, this);
-        position_sub = n.subscribe("object_positions", 10, &MeasurementSimulator::position_callback, this);
+        clicked_pub = n.advertise<rbpf_mtt::ObjectMeasurement>("filter_measurements", 50);
+        clicked_sub = n.subscribe("/move_base_simple/goal", 50, &MeasurementSimulator::clicked_callback, this);
+        position_sub = n.subscribe("object_positions", 50, &MeasurementSimulator::position_callback, this);
 
         cout << "Click to add initialization of object " << 0 << "..." << endl;
     }

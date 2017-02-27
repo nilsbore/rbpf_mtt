@@ -17,10 +17,10 @@ class SmootherNode(object):
 
     def __init__(self):
 
-        self.gmm_pub = rospy.Publisher('filter_gmms', GMMPoses, queue_size=10)
+        self.gmm_pub = rospy.Publisher('filter_gmms', GMMPoses, queue_size=50)
         #self.poses_pub = rospy.Publisher('filter_poses', MarkerArray, queue_size=10)
-        self.ready_pub = rospy.Publisher('filter_ready', Empty, queue_size=10)
-        self.estimates_pub = rospy.Publisher('estimate_markers', MarkerArray, queue_size=10)
+        self.ready_pub = rospy.Publisher('filter_ready', Empty, queue_size=50)
+        self.estimates_pub = rospy.Publisher('estimate_markers', MarkerArray, queue_size=50)
 
         self.nbr_targets = rospy.get_param('~number_targets', 2)
         self.publish_maps = rospy.get_param('~publish_maps', True)
@@ -70,8 +70,8 @@ class SmootherNode(object):
             if self.joint_spatial_measurement.shape[0] > 4:
                 print "Size: ", self.joint_spatial_measurement.shape[0]
                 print "Exiting..."
-                print self.all_timesteps
-                print self.timesteps
+                #print self.all_timesteps
+                #print self.timesteps
                 sys.exit()
             self.smoother.joint_update(self.joint_spatial_measurement,
                                        self.joint_feature_measurement,
