@@ -41,7 +41,10 @@ class SmootherServer(object):
         # N dimensions, this is probably not really needed
         self.observation_ids = np.zeros((max_iterations,), dtype=int)
 
+        # these are specifically for objects extracted through change detection
         self.cloud_paths = []
+        self.detection_type = []
+        self.going_backward = []
 
         self.target_poses = PoseArray()
 
@@ -54,7 +57,10 @@ class SmootherServer(object):
         self.poses_pub = rospy.Publisher('set_target_poses', PoseArray, queue_size=50)
         self.obs_pub = rospy.Publisher('sim_filter_measurements', ObjectMeasurement, queue_size=50)
         self.smooth_pub = rospy.Publisher('smoother_vis', Int32, queue_size=50)
-        self.path_pub = rospy.Publisher('cloud_paths', String, queue_size=50)
+
+        self.path_pubs = [rospy.Publisher('cloud_paths', String, queue_size=50),
+                          rospy.Publisher('forward_cloud_paths', String, queue_size=50),
+                          rospy.Publisher('backward_cloud_paths', String, queue_size=50)]
 
         #self.initialized = np.zeros((self.nbr_targets,), dtype=bool)
 
@@ -77,6 +83,19 @@ class SmootherServer(object):
         rospy.loginfo(" ...starting")
         self._as.start()
         rospy.loginfo(" ...done")
+
+    def object_type_index(self):
+
+        if self.detection_type[self.iteration] == "detected":
+            return 0
+        elif self.detection_type[self.iteration] == "propagated":
+            if self.going_backward[self.iteration]:
+                return 2
+            else:
+                return 1
+        else:
+            print self.detection_type[self.iteration], " is not a proper detection type! Exiting..."
+            sys.exit()
 
     def do_load(self, observations_file):
         self.load_observation_sequence(observations_file)
@@ -186,7 +205,7 @@ class SmootherServer(object):
 
         self.poses_pub.publish(poses)
 
-        clouds_paths = ""
+        clouds_paths = ["", "", ""]
 
         while True:
 
@@ -201,9 +220,10 @@ class SmootherServer(object):
             obs.timestep = self.timesteps[self.iteration]
 
             if len(self.cloud_paths) > 0:
-                if len(clouds_paths) > 0:
-                    clouds_paths += ","
-                clouds_paths += self.cloud_paths[self.iteration]
+                ind = self.object_type_index()
+                if len(clouds_paths[ind]) > 0:
+                    clouds_paths[ind] += ","
+                clouds_paths[ind] += self.cloud_paths[self.iteration]
 
             self.obs_pub.publish(obs)
             if self.is_smoothed:
@@ -215,7 +235,8 @@ class SmootherServer(object):
                or self.timesteps[self.iteration] != first_timestep:
                break
 
-        self.path_pub.publish(clouds_paths)
+        for i, paths in enumerate(clouds_paths):
+            self.path_pubs[i].publish(paths)
 
 
     def save_observation_sequence(self, observations_file):
@@ -255,6 +276,10 @@ class SmootherServer(object):
         self.feature_measurement_std = npzfile['feature_measurement_std']
         if 'clouds' in npzfile:
             self.cloud_paths = npzfile['clouds']
+        if 'detection_type' in npzfile:
+            self.detection_type = npzfile['detection_type']
+        if 'going_backward' in npzfile:
+            self.going_backward = npzfile['going_backward']
 
         inits = np.sum(self.timesteps == 0)
         if inits > self.nbr_targets:
@@ -267,6 +292,10 @@ class SmootherServer(object):
             self.observation_ids = np.delete(self.observation_ids, indices)
             if len(self.cloud_paths) > 0:
                 self.cloud_paths = list(self.cloud_paths[:self.nbr_targets]) + list(self.cloud_paths[inits:])
+            if len(self.detection_type) > 0:
+                self.detection_type = list(self.detection_type[:self.nbr_targets]) + list(self.detection_type[inits:])
+            if len(self.going_backward) > 0:
+                self.going_backward = np.delete(self.going_backward, indices)
 
         SmootherServer._result.response = "Loaded observations at " + observations_file
         print "Loaded observations sequence with timesteps: ", self.timesteps
