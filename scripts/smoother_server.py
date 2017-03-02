@@ -58,9 +58,10 @@ class SmootherServer(object):
         self.obs_pub = rospy.Publisher('sim_filter_measurements', ObjectMeasurement, queue_size=50)
         self.smooth_pub = rospy.Publisher('smoother_vis', Int32, queue_size=50)
 
-        self.path_pubs = [rospy.Publisher('cloud_paths', String, queue_size=50),
-                          rospy.Publisher('forward_cloud_paths', String, queue_size=50),
-                          rospy.Publisher('backward_cloud_paths', String, queue_size=50)]
+        self.path_pubs = [rospy.Publisher('forward_detected_paths', String, queue_size=50),
+                          rospy.Publisher('forward_propagated_paths', String, queue_size=50),
+                          rospy.Publisher('backward_detected_paths', String, queue_size=50),
+                          rospy.Publisher('backward_propagated_paths', String, queue_size=50),]
 
         #self.initialized = np.zeros((self.nbr_targets,), dtype=bool)
 
@@ -87,10 +88,13 @@ class SmootherServer(object):
     def object_type_index(self):
 
         if self.detection_type[self.iteration] == "detected":
-            return 0
-        elif self.detection_type[self.iteration] == "propagated":
             if self.going_backward[self.iteration]:
                 return 2
+            else:
+                return 0
+        elif self.detection_type[self.iteration] == "propagated":
+            if self.going_backward[self.iteration]:
+                return 3
             else:
                 return 1
         else:
@@ -205,7 +209,7 @@ class SmootherServer(object):
 
         self.poses_pub.publish(poses)
 
-        clouds_paths = ["", "", ""]
+        clouds_paths = ["", "", "", ""]
 
         while True:
 
