@@ -216,7 +216,7 @@ class SmootherServer(object):
             obs.pose.pose.position.y = self.spatial_measurements[self.iteration, 1]
             obs.initialization_id = self.target_ids[self.iteration]
             obs.observation_id = self.observation_ids[self.iteration]
-            print "Publishing observation: ", self.iteration, " with timestep: ", self.timesteps[self.iteration], " and cloud: ", self.cloud_paths[self.iteration]
+            print "Publishing observation: ", self.iteration, " with timestep: ", self.timesteps[self.iteration] #, " and cloud: ", self.cloud_paths[self.iteration]
             obs.timestep = self.timesteps[self.iteration]
 
             if len(self.cloud_paths) > 0:
