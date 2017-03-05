@@ -1,6 +1,7 @@
 #!/usr/bin/python
 
 import numpy as np
+import random
 import rospy
 from rbpf_mtt.msg import GMMPoses, ObjectMeasurement
 #from rbpf_mtt.rbpf_filter import RBPFMTTFilter
@@ -34,7 +35,8 @@ class MeasurementVisServer(object):
         self.target_pub = rospy.Publisher('get_target_poses', PoseArray, queue_size=50)
         #self.object_pub = rospy.Publisher('measurement_markers', MarkerArray, queue_size=10)'
 
-        self.nbr_targets = self.nbr_targets = rospy.get_param('~number_targets', 2)
+        self.nbr_targets = rospy.get_param('~number_targets', 2)
+        self.nbr_noise = rospy.get_param('~number_noise', 4)
         self.markers = MarkerArray()
         self.object_counters = np.zeros((self.nbr_targets,), dtype=int)
         self.initialized = np.zeros((self.nbr_targets,), dtype=bool)
@@ -145,6 +147,39 @@ class MeasurementVisServer(object):
                     object_pos.negative_observation = True
                     self.positions_pub.publish(object_pos)
                     published = True
+
+        # compute min an max vertices in x and y to be able to sample uniform
+        # then use rejection sampling to get points within the polygon
+        maxs = np.amax(vertices, axis=0)
+        mins = np.amin(vertices, axis=0)
+        for i in range(0, self.nbr_noise):
+
+            while True:
+                x = random.uniform(mins[0], maxs[0])
+                y = random.uniform(mins[1], maxs[1])
+                pose = [x, y]
+                if hull.find_simplex(pose) >= 0:
+                    pose = PoseStamped()
+                    pose.header.frame_id = "map"
+                    pose.header.stamp = rospy.Time.now()
+                    pose.pose.position.x = x
+                    pose.pose.position.y = y
+                    pose.pose.position.z = 0.
+                    pose.pose.orientation.x = 0.
+                    pose.pose.orientation.x = 0.
+                    pose.pose.orientation.x = 0.
+                    pose.pose.orientation.w = 1.
+                    object_pos = ObjectMeasurement()
+                    object_pos.pose = pose
+                    object_pos.initialization_id = -1
+                    object_pos.timestep = self.timestep
+                    object_pos.observation_id = self.measurement_counter
+                    object_pos.negative_observation = False
+                    self.measurement_counter += 1
+                    self.positions_pub.publish(object_pos)
+                    self.room_time = 0
+                    published = True
+                    break
 
         if published:
             self.timestep = self.timestep + 1

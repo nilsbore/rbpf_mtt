@@ -57,6 +57,18 @@ public:
 
     Eigen::VectorXd generate_feature(int object_id)
     {
+
+        if (object_id == -1) {
+            std::normal_distribution<double> feature_vec_distribution(0.0, 1.0);
+            Eigen::VectorXd feature = Eigen::VectorXd::Zero(feature_dim);
+            for (int i = 0; i < feature_dim; ++i) {
+                feature[i] = feature_vec_distribution(generator);
+            }
+            feature.normalize();
+            feature *= 2.0*feature_std;
+            return feature;
+        }
+
         // simply sample the feature from an N-dimensional multi_variate gaussian
         // let's assume that we have a few randomly generate mean vectors
         //std::default_random_engine generator;

@@ -4,6 +4,7 @@
     <arg name="db_path" default="/home/nbore/mongodb_store"/>
     <arg name="test" default="false"/>
     <arg name="number_targets" default="2"/>
+    <arg name="number_noise" default="2"/>
     <arg name="config" default="moving_objects"/>
     <arg name="db_name" default="somadata"/>
     <arg name="feature_dim" default="4"/>
@@ -58,6 +59,7 @@
 
     <node pkg="rbpf_mtt" type="measurement_vis_server.py" name="measurement_vis_server" output="screen" respawn="true">
         <param name="number_targets" value="$(arg number_targets)"/>
+        <param name="number_noise" value="$(arg number_noise)"/>
     </node>
 
     <!-- <node pkg="rbpf_mtt" type="test_filter.py" name="test_filter"/> -->
