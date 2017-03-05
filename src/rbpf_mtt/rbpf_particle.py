@@ -243,11 +243,11 @@ class RBPFMParticle(object):
         nbr_observations = spatial_measurements.shape[0]
 
         # we somehow need to integrate the feature density into these clutter things
-        pclutter = 0.0 # probability of measurement originating from noise
-        pdclutter = 0.001 # probability density of clutter measurement
+        pclutter = 0.3 # probability of measurement originating from noise
+        pdclutter = 0.1 # probability density of clutter measurement
         spatial_var = self.spatial_std*self.spatial_std
         feature_var = self.feature_std*self.feature_std
-        pjump = 0.001
+        pjump = 0.04
 
         nbr_targets = self.sm.shape[0]
         spatial_dim = self.sm.shape[1]
@@ -267,6 +267,7 @@ class RBPFMParticle(object):
         spatial_likelihoods = np.zeros((nbr_observations, nbr_targets))
         feature_likelihoods = np.zeros((nbr_observations, nbr_targets))
 
+        # compute the likelihoods for all the observations and targets
         for k in range(0, nbr_observations):
             for j in range(0, nbr_targets):
 
@@ -306,49 +307,30 @@ class RBPFMParticle(object):
             #    pc[k, picked] = 0.
             #pc = 1./np.sum(pc)*pc
 
-        with_cartesian = False
-
-        if with_cartesian:
-            # now we need to do a cartesian combination of the likelihoods and set indices
-            # where assignment overlap to 0
-            joint_pcs = np.zeros((1, 1))
+        # sample measurement -> target mapping
+        states = np.zeros((nbr_observations,), dtype=int)
+        while True:
             for k in range(0, nbr_observations):
-                joint_pcs = np.kron(joint_pcs, pc[k])
-            joint_pcs = joint_pcs.flatten()
-            # we need to go through each pair i, i and set it to zero...
-            for j in range(0, nbr_targets):
-                inds = cartesian_inds.overlapping_indices_for_state(j, nbr_targets, nbr_observations)
-                print joint_pcs.shape
-                print inds.shape
-                joint_pcs[inds] = 0.
-
-            # rejection sampling would be quite a lot easier and probably faster
-            # hmm, that might also lead to a situation where we can avoid cartesian combinations alltogether
-            print (nbr_targets+2)**nbr_observations
-            cartesian_ind = np.random.choice((nbr_targets+2)**nbr_observations, p=pc) #categ_rnd()
-            weights_update = 1.
-            states = cartesian_inds.cartesian_to_states(cartesian_ind, nbr_targets, nbr_observations)
-        else:
-            states = np.zeros((nbr_observations,), dtype=int)
-            while True:
-                for k in range(0, nbr_observations):
-                    states[k] = np.random.choice(nbr_targets+2, p=pc[k])
-                unique, counts = np.unique(states, return_counts=True)
-                unique_list = unique.tolist()
-                nbr_sampled_noise = 0
-                if nbr_targets in unique_list:
-                    nbr_sampled_noise = counts[unique_list.index(nbr_targets)] - 1
-                nbr_sampled_jumps = 0
-                if nbr_targets+1 in unique_list:
-                    nbr_sampled_jumps = counts[unique_list.index(nbr_targets+1)] - 1
-                print "Nbr sampled noise, targets: ", nbr_sampled_noise, nbr_targets
-                if len(unique) + nbr_sampled_noise + nbr_sampled_jumps == nbr_observations:
-                    for j in unique_list:
-                        if j != nbr_targets and j != nbr_targets+1:
-                            self.c.append(j) # we need to this this here to be sure to not sample jumps later
-                    break
-                else:
-                    print "Found several similar states: ", states
+                # the problem here is that it does not take the other probabilites into account
+                states[k] = np.random.choice(nbr_targets+2, p=pc[k])
+            unique, counts = np.unique(states, return_counts=True)
+            unique_list = unique.tolist()
+            nbr_sampled_noise = 0
+            if nbr_targets in unique_list:
+                nbr_sampled_noise = counts[unique_list.index(nbr_targets)] - 1
+            nbr_sampled_jumps = 0
+            if nbr_targets+1 in unique_list:
+                nbr_sampled_jumps = counts[unique_list.index(nbr_targets+1)] - 1
+            print "Nbr sampled noise, jumps, targets: ", nbr_sampled_noise, nbr_sampled_jumps, nbr_targets
+            if len(unique) + nbr_sampled_jumps > nbr_targets:
+                print "Sampled more jumps and associations than possible..."
+            elif len(unique) + nbr_sampled_noise + nbr_sampled_jumps == nbr_observations:
+                for j in unique_list:
+                    if j != nbr_targets and j != nbr_targets+1:
+                        self.c.append(j) # we need to this this here to be sure to not sample jumps later
+                break
+            else:
+                print "Found several similar states: ", states
 
         weights_update = 1.
 
@@ -373,7 +355,7 @@ class RBPFMParticle(object):
                 self.did_jump = True
                 self.nbr_jumps += 1
                 self.target_jumps[i] += 1
-                weights_update *= pjump
+                weights_update *= 0.1*pjump
             else:
                 self.sm[i] = pot_sm[k, i]
                 self.fm[i] = pot_fm[k, i]
