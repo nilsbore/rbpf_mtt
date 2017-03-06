@@ -66,7 +66,7 @@ class RBPFMTTSmoother(object):
             for i in range(0, self.nbr_particles):
                 if len(self.filter.particles[i].c) <= k:
                     print "Error!", k, self.filter.particles[i].c
-                    sys.exit()
+                    #sys.exit() # TODO: Temporary fix!
             self.nbr_timesteps += 1
 
     def predict(self):
