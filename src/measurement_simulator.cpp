@@ -20,6 +20,7 @@ public:
     int feature_dim;
     double feature_std;
     double spatial_std;
+    double discrim_factor;
     Eigen::MatrixXd means;
     std::default_random_engine generator;
 
@@ -30,6 +31,7 @@ public:
         pn.param<int>("feature_dim", feature_dim, 4);
         pn.param<double>("feature_std", feature_std, 0.63);
         pn.param<double>("spatial_std", spatial_std, 0.45);
+        pn.param<double>("discrim_factor", discrim_factor, 2.0);
 
         std::default_random_engine generator;
         std::normal_distribution<double> feature_distribution(0.0, 1.0);
@@ -42,7 +44,7 @@ public:
                 feature[i] = feature_distribution(generator);
             }
             feature.normalize();
-            means.col(j) = 2.0*feature_std*feature; // this is just some random thingy
+            means.col(j) = discrim_factor*feature_std*feature; // this is just some random thingy
         }
 
         initialized = false;
@@ -65,7 +67,7 @@ public:
                 feature[i] = feature_vec_distribution(generator);
             }
             feature.normalize();
-            feature *= 2.0*feature_std;
+            feature *= discrim_factor*feature_std;
             return feature;
         }
 
