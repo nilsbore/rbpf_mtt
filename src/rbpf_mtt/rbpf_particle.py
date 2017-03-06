@@ -227,34 +227,13 @@ class RBPFMParticle(object):
 
         return weights_update
 
-    # this functions takes in several measurements at the same timestep
-    # and does association jointly, leading to fewer particles with low weights
-    def joint_update(self, spatial_measurements, feature_measurements, time, observation_id):
-
-        self.c = []
-        self.did_jump = False
-
-        if time != self.last_time:
-            self.c = []
-            self.last_time = time
-
-        print "Got measurement with observations: ", spatial_measurements.shape[0]
-
-        nbr_observations = spatial_measurements.shape[0]
-
-        # we somehow need to integrate the feature density into these clutter things
-        pclutter = 0.3 # probability of measurement originating from noise
-        pdclutter = 0.1 # probability density of clutter measurement
-        spatial_var = self.spatial_std*self.spatial_std
-        feature_var = self.feature_std*self.feature_std
-        pjump = 0.04
+    def compute_update(self, spatial_measurements, feature_measurements,
+                       pclutter, pdclutter, pjump, sR, fR):
 
         nbr_targets = self.sm.shape[0]
         spatial_dim = self.sm.shape[1]
         feature_dim = self.fm.shape[1]
-
-        sR = spatial_var*np.identity(spatial_dim) # measurement noise
-        fR = feature_var*np.identity(feature_dim) # measurement noise
+        nbr_observations = spatial_measurements.shape[0]
 
         # Can we have 4-dimensional matrix in numpy, YES WE CAN!
         pot_sm = np.zeros((nbr_observations, nbr_targets, spatial_dim)) # the Kalman filter means
@@ -307,6 +286,15 @@ class RBPFMParticle(object):
             #    pc[k, picked] = 0.
             #pc = 1./np.sum(pc)*pc
 
+        return likelihoods, feature_likelihoods, pc, pot_sm, pot_fm, pot_sP, pot_fP
+
+
+    def sample_update(self, nbr_observations, pc):
+
+        nbr_targets = self.sm.shape[0]
+        spatial_dim = self.sm.shape[1]
+        feature_dim = self.fm.shape[1]
+
         # sample measurement -> target mapping
         states = np.zeros((nbr_observations,), dtype=int)
         while True:
@@ -331,6 +319,42 @@ class RBPFMParticle(object):
                 break
             else:
                 print "Found several similar states: ", states
+
+        return states
+
+    # this functions takes in several measurements at the same timestep
+    # and does association jointly, leading to fewer particles with low weights
+    def joint_update(self, spatial_measurements, feature_measurements, time, observation_id):
+
+        self.c = []
+        self.did_jump = False
+
+        if time != self.last_time:
+            self.c = []
+            self.last_time = time
+
+        print "Got measurement with observations: ", spatial_measurements.shape[0]
+
+        # we somehow need to integrate the feature density into these clutter things
+        pclutter = 0.3 # probability of measurement originating from noise
+        pdclutter = 0.1 # probability density of clutter measurement
+        pjump = 0.04
+        spatial_var = self.spatial_std*self.spatial_std
+        feature_var = self.feature_std*self.feature_std
+
+        nbr_targets = self.sm.shape[0]
+        spatial_dim = self.sm.shape[1]
+        feature_dim = self.fm.shape[1]
+        nbr_observations = spatial_measurements.shape[0]
+
+        sR = spatial_var*np.identity(spatial_dim) # measurement noise
+        fR = feature_var*np.identity(feature_dim) # measurement noise
+
+        likelihoods, feature_likelihoods, pc, pot_sm, pot_fm, pot_sP, pot_fP = \
+            self.compute_update(spatial_measurements, feature_measurements,
+                                pclutter, pdclutter, pjump, sR, fR)
+
+        states = self.sample_update(nbr_observations, pc)
 
         weights_update = 1.
 
