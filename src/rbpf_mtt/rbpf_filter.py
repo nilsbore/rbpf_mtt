@@ -143,7 +143,7 @@ class RBPFMTTFilter(object):
         nbr_noise = np.zeros((self.nbr_particles,))
         nbr_assoc = np.zeros((self.nbr_particles,))
         for i, p in enumerate(self.particles):
-            weights_update = self.particles[i].joint_update(spatial_measurements, feature_measurements, time, observation_id)
+            weights_update = self.particles[i].meas_joint_update(spatial_measurements, feature_measurements, time, observation_id)
             print "Updating particle", i, " with weight: ", weights_update, ", particle weight: ", self.weights[i], ", did jump: ", p.did_jump, "nbr jumps: ", p.nbr_jumps
             self.weights[i] *= weights_update
             nbr_jumps[i] = p.nbr_jumps
