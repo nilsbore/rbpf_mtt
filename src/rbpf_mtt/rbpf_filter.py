@@ -29,14 +29,20 @@ class RBPFMTTFilter(object):
     def estimate(self):
 
         pos = np.zeros((self.nbr_targets, self.dim))
+        feat = np.zeros((self.nbr_targets, self.feature_dim))
+        feat_cov = np.zeros((self.nbr_targets, self.feature_dim, self.feature_dim))
         jumps = np.zeros((self.nbr_targets,))
         for i, p in enumerate(self.particles):
             pos += self.weights[i]*p.sm
+            feat += self.weights[i]*p.fm
+            feat_cov += self.weights[i]*p.fP
             jumps += self.weights[i]*p.target_jumps
         pos = 1./np.sum(self.weights)*pos # should already be normalized
+        feat = 1./np.sum(self.weights)*feat # should already be normalized
+        feat_cov = 1./np.sum(self.weights)*feat_cov # should already be normalized
         jumps = 1./np.sum(self.weights)*jumps
 
-        return pos, jumps
+        return pos, feat, feat_cov, jumps
 
     def effective_sample_size(self):
 
@@ -143,7 +149,7 @@ class RBPFMTTFilter(object):
         nbr_noise = np.zeros((self.nbr_particles,))
         nbr_assoc = np.zeros((self.nbr_particles,))
         for i, p in enumerate(self.particles):
-            weights_update = self.particles[i].meas_joint_update(spatial_measurements, feature_measurements, time, observation_id)
+            weights_update = self.particles[i].target_joint_update(spatial_measurements, feature_measurements, time, observation_id)
             print "Updating particle", i, " with weight: ", weights_update, ", particle weight: ", self.weights[i], ", did jump: ", p.did_jump, "nbr jumps: ", p.nbr_jumps
             self.weights[i] *= weights_update
             nbr_jumps[i] = p.nbr_jumps

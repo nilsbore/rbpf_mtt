@@ -6,7 +6,7 @@ from rbpf_mtt.msg import GMMPoses, ObjectMeasurement
 from rbpf_mtt.srv import PublishGMMMap, PublishGMMMaps
 from rbpf_mtt.rbpf_filter import RBPFMTTFilter
 from rbpf_mtt.rbpf_smoother import RBPFMTTSmoother
-from rbpf_mtt.rbpf_vis import filter_to_gmms, particles_to_gmms, estimates_to_markers, smoother_to_gmms
+from rbpf_mtt.rbpf_vis import filter_to_gmms, particles_to_gmms, estimates_to_markers, smoother_to_gmms, feature_estimates_to_poses
 from geometry_msgs.msg import PoseWithCovariance
 from visualization_msgs.msg import Marker, MarkerArray
 from std_msgs.msg import Empty, Int32
@@ -20,7 +20,9 @@ class SmootherNode(object):
         self.gmm_pub = rospy.Publisher('filter_gmms', GMMPoses, queue_size=50)
         #self.poses_pub = rospy.Publisher('filter_poses', MarkerArray, queue_size=10)
         self.ready_pub = rospy.Publisher('filter_ready', Empty, queue_size=50)
-        self.estimates_pub = rospy.Publisher('estimate_markers', MarkerArray, queue_size=50)
+        self.estimate_markers_pub = rospy.Publisher('estimate_markers', MarkerArray, queue_size=50)
+        self.pose_estimates_pub = rospy.Publisher('pose_estimates', GMMPoses, queue_size=50)
+        self.feature_estimates_pub = rospy.Publisher('feature_estimates', GMMPoses, queue_size=50)
 
         self.nbr_targets = rospy.get_param('~number_targets', 2)
         self.publish_maps = rospy.get_param('~publish_maps', True)
@@ -28,7 +30,7 @@ class SmootherNode(object):
         self.feature_std = rospy.get_param('~feature_std', 0.45)
         self.feature_dim = rospy.get_param('~feature_dim', 4)
 
-        self.smoother = RBPFMTTSmoother(self.nbr_targets, 100, self.feature_dim, 20)
+        self.smoother = RBPFMTTSmoother(self.nbr_targets, 100, self.feature_dim, 20, self.spatial_std, self.feature_std)
         self.initialized = np.zeros((self.nbr_targets,), dtype=bool)
 
         self.service = rospy.Service('smooth_estimates', EmptySrv, self.smooth_callback)
@@ -60,9 +62,13 @@ class SmootherNode(object):
 
     def publish_estimates(self):
 
-        poses, jumps = self.smoother.filter.estimate()
+        poses, feats, feat_covs, jumps = self.smoother.filter.estimate()
+
+        feature_poses = feature_estimates_to_poses(feats, feat_covs, self.feature_dim, self.nbr_targets)
+
         markers = estimates_to_markers(poses, jumps)
-        self.estimates_pub.publish(markers)
+        self.feature_estimates_pub.publish(feature_poses)
+        self.estimate_markers_pub.publish(markers)
 
     def add_measurements(self):
 
@@ -92,7 +98,7 @@ class SmootherNode(object):
         is_init = np.all(self.initialized)
         spatial_measurement, feature_measurement = self.measurements_from_pose(pose)
 
-        if pose.timestep != self.last_time and pose.timestep != 0:
+        if self.joint_spatial_measurement is None or (is_init and pose.timestep != self.last_time):
             #self.last_time = pose.timestep
             #self.last_observation_id = pose.observation_id
             self.add_measurements()
@@ -122,6 +128,10 @@ class SmootherNode(object):
             print "Not intialized, adding initialization..."
             self.smoother.initialize_target(pose.initialization_id, spatial_measurement, feature_measurement, pose.timestep)
             self.initialized[pose.initialization_id] = True
+            if np.all(self.initialized):
+                self.par_visualize_marginals(self.smoother.filter)
+                self.publish_estimates()
+
         else:
             if not is_init:
                 print "All targets have not been initialized, not updating..."

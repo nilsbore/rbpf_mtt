@@ -65,6 +65,29 @@ def filter_to_gmms(rbpfilter, initialized=None):
 
     return gmms
 
+def feature_estimates_to_poses(feats, feat_covs, feature_dim, nbr_targets):
+    feature_poses = GMMPoses()
+    feature_poses.id = 0
+
+    max_feat_dim = min(feature_dim, 3)
+    for j in range(0, nbr_targets):
+        feature_pose = PoseWithCovariance()
+        feature_pose.pose.position.x = feats[j, 0]
+        feature_pose.pose.position.y = feats[j, 1]
+        if max_feat_dim > 2:
+            feature_pose.pose.position.z = feats[j, 2]
+        feature_pose.pose.orientation.x = 0.
+        feature_pose.pose.orientation.y = 0.
+        feature_pose.pose.orientation.z = 0.
+        feature_pose.pose.orientation.w = 1.
+        for y in range(0, max_feat_dim):
+            for x in range(0, max_feat_dim):
+                feature_pose.covariance[y*6+x] = feat_covs[j, y, x]
+        feature_poses.modes.append(feature_pose)
+        feature_poses.weights.append(1.)
+
+    return feature_poses
+
 def smoother_to_gmms(rbpsmoother, timestep):
 
     gmms = []
