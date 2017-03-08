@@ -285,21 +285,22 @@ class SmootherServer(object):
         if 'going_backward' in npzfile:
             self.going_backward = npzfile['going_backward']
 
-        inits = np.sum(self.timesteps == 0)
-        if inits > self.nbr_targets:
-            indices = np.arange(self.nbr_targets, inits, dtype=int)
-            self.spatial_measurements = np.delete(self.spatial_measurements, indices, axis=0)
-            self.feature_measurements = np.delete(self.feature_measurements, indices, axis=0)
-            self.timesteps = np.delete(self.timesteps, indices)
-            self.spatial_positions = np.delete(self.spatial_positions, indices, axis=0)
-            self.target_ids = np.delete(self.target_ids, indices)
-            self.observation_ids = np.delete(self.observation_ids, indices)
-            if len(self.cloud_paths) > 0:
-                self.cloud_paths = list(self.cloud_paths[:self.nbr_targets]) + list(self.cloud_paths[inits:])
-            if len(self.detection_type) > 0:
-                self.detection_type = list(self.detection_type[:self.nbr_targets]) + list(self.detection_type[inits:])
-            if len(self.going_backward) > 0:
-                self.going_backward = np.delete(self.going_backward, indices)
+        # This is here if we have multiple points for the first timestep, which we don't if we picked them manually
+        # inits = np.sum(self.timesteps == 0)
+        # if inits > self.nbr_targets:
+        #     indices = np.arange(self.nbr_targets, inits, dtype=int)
+        #     self.spatial_measurements = np.delete(self.spatial_measurements, indices, axis=0)
+        #     self.feature_measurements = np.delete(self.feature_measurements, indices, axis=0)
+        #     self.timesteps = np.delete(self.timesteps, indices)
+        #     self.spatial_positions = np.delete(self.spatial_positions, indices, axis=0)
+        #     self.target_ids = np.delete(self.target_ids, indices)
+        #     self.observation_ids = np.delete(self.observation_ids, indices)
+        #     if len(self.cloud_paths) > 0:
+        #         self.cloud_paths = list(self.cloud_paths[:self.nbr_targets]) + list(self.cloud_paths[inits:])
+        #     if len(self.detection_type) > 0:
+        #         self.detection_type = list(self.detection_type[:self.nbr_targets]) + list(self.detection_type[inits:])
+        #     if len(self.going_backward) > 0:
+        #         self.going_backward = np.delete(self.going_backward, indices)
 
         SmootherServer._result.response = "Loaded observations at " + observations_file
         print "Loaded observations sequence with timesteps: ", self.timesteps

@@ -227,7 +227,7 @@ class RBPFMParticle(object):
 
         return weights_update
 
-    def compute_update(self, spatial_measurements, feature_measurements, pnone, pjump, sR, fR):
+    def target_compute_update(self, spatial_measurements, feature_measurements, pnone, pjump, sR, fR):
 
         nbr_targets = self.sm.shape[0]
         spatial_dim = self.sm.shape[1]
@@ -276,7 +276,7 @@ class RBPFMParticle(object):
         return likelihoods, pot_sm, pot_fm, pot_sP, pot_fP
 
 
-    def sample_update(self, nbr_observations, likelihoods):
+    def target_sample_update(self, nbr_observations, likelihoods):
 
         nbr_targets = self.sm.shape[0]
         spatial_dim = self.sm.shape[1]
@@ -313,7 +313,7 @@ class RBPFMParticle(object):
 
     # this functions takes in several measurements at the same timestep
     # and does association jointly, leading to fewer particles with low weights
-    def joint_update(self, spatial_measurements, feature_measurements, time, observation_id):
+    def target_joint_update(self, spatial_measurements, feature_measurements, time, observation_id):
 
         self.c = []
         self.did_jump = False
@@ -342,9 +342,9 @@ class RBPFMParticle(object):
         sR = spatial_var*np.identity(spatial_dim) # measurement noise
         fR = feature_var*np.identity(feature_dim) # measurement noise
 
-        likelihoods, pot_sm, pot_fm, pot_sP, pot_fP = self.compute_update(spatial_measurements, feature_measurements, pnone, pjump, sR, fR)
+        likelihoods, pot_sm, pot_fm, pot_sP, pot_fP = self.target_compute_update(spatial_measurements, feature_measurements, pnone, pjump, sR, fR)
 
-        states = self.sample_update(nbr_observations, likelihoods)
+        states = self.target_sample_update(nbr_observations, likelihoods)
 
         weights_update = 1.
 
@@ -482,9 +482,9 @@ class RBPFMParticle(object):
         print "Got measurement with observations: ", spatial_measurements.shape[0]
 
         # we somehow need to integrate the feature density into these clutter things
-        pclutter = 0.3 # probability of measurement originating from noise
-        pdclutter = 0.1 # probability density of clutter measurement
-        pjump = 0.04
+        pclutter = 0.1#0.3 # probability of measurement originating from noise
+        pdclutter = 0.001#0.1 # probability density of clutter measurement
+        pjump = 0.001#0.1
         spatial_var = self.spatial_std*self.spatial_std
         feature_var = self.feature_std*self.feature_std
 
@@ -525,7 +525,7 @@ class RBPFMParticle(object):
                 self.did_jump = True
                 self.nbr_jumps += 1
                 self.target_jumps[i] += 1
-                weights_update *= 0.1*pjump
+                weights_update *= 1*pjump # 0.1*pjump
             else:
                 self.sm[i] = pot_sm[k, i]
                 self.fm[i] = pot_fm[k, i]

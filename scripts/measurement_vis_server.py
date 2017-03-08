@@ -392,7 +392,7 @@ class MeasurementVisServer(object):
 
     def callback(self, clicked_pose):
 
-        if not self.initialized[clicked_pose.initialization_id]:
+        if clicked_pose.initialization_id != -1 and not self.initialized[clicked_pose.initialization_id]:
             self.initialized[clicked_pose.initialization_id] = True
             self.initialize_object_marker(clicked_pose.initialization_id, clicked_pose.pose.pose)
 
@@ -448,7 +448,8 @@ class MeasurementVisServer(object):
             text_marker.text = str(clicked_pose.timestep) #str(self.object_counters[clicked_pose.initialization_id])
         #text_marker.lifetime = rospy.Time(secs=1000)
 
-        self.object_counters[clicked_pose.initialization_id] += 1
+        if clicked_pose.initialization_id != -1: # noise!
+            self.object_counters[clicked_pose.initialization_id] += 1
 
         self.markers.markers.append(sphere_marker)
         self.markers.markers.append(text_marker)
