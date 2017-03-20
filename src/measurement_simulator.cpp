@@ -112,6 +112,7 @@ public:
     {
         rbpf_mtt::ObjectMeasurement meas;
         meas.pose = *pose;
+        meas.negative_observation = false;
 
         if (initialized) {
             meas.initialization_id = current_object_id;

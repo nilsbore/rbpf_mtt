@@ -5,7 +5,7 @@ import random
 import rospy
 from rbpf_mtt.msg import GMMPoses, ObjectMeasurement
 #from rbpf_mtt.rbpf_filter import RBPFMTTFilter
-from geometry_msgs.msg import Pose, PoseArray, PoseStamped, PoseWithCovariance
+from geometry_msgs.msg import Pose, PoseArray, PoseStamped, PoseWithCovariance, PoseWithCovarianceStamped
 from visualization_msgs.msg import Marker, MarkerArray, InteractiveMarker, InteractiveMarkerControl
 from interactive_markers.interactive_marker_server import InteractiveMarkerServer
 from mongodb_store.message_store import MessageStoreProxy
@@ -67,6 +67,7 @@ class MeasurementVisServer(object):
         rospy.Subscriber("filter_measurements", ObjectMeasurement, self.callback)
         rospy.Subscriber("sim_filter_measurements", ObjectMeasurement, self.callback)
         rospy.Subscriber("set_target_poses", PoseArray, self.set_target_poses)
+        rospy.Subscriber("initialpose", PoseWithCovarianceStamped, self.clicked_callback)
 
         self.initialize_room_markers()
 
@@ -124,29 +125,31 @@ class MeasurementVisServer(object):
                 object_pos.initialization_id = j
                 object_pos.timestep = self.timestep
                 object_pos.observation_id = self.measurement_counter
+                object_pos.location_id = self.room_id
                 object_pos.negative_observation = False
                 self.measurement_counter += 1
                 self.positions_pub.publish(object_pos)
                 self.room_time = 0
                 published = True
-            if self.did_move[j]:
-                pose = [self.previous_poses[j].position.x, self.previous_poses[j].position.y]
-                if hull.find_simplex(pose) >= 0:
-                    print "Previous pose was inside, PUBLISHING!"
-                    #self.did_move[j] = False # need to fix a history?
-                    #self.previous_poses[j] = self.marker_poses[j]
-                    pose = PoseStamped()
-                    pose.header.frame_id = "map"
-                    pose.header.stamp = rospy.Time.now()
-                    pose.pose = self.previous_poses[j]
-                    object_pos = ObjectMeasurement()
-                    object_pos.pose = pose
-                    object_pos.initialization_id = j
-                    object_pos.timestep = self.timestep
-                    object_pos.observation_id = self.measurement_counter
-                    object_pos.negative_observation = True
-                    self.positions_pub.publish(object_pos)
-                    published = True
+            # if self.did_move[j]:
+            #     pose = [self.previous_poses[j].position.x, self.previous_poses[j].position.y]
+            #     if hull.find_simplex(pose) >= 0:
+            #         print "Previous pose was inside, PUBLISHING!"
+            #         #self.did_move[j] = False # need to fix a history?
+            #         #self.previous_poses[j] = self.marker_poses[j]
+            #         pose = PoseStamped()
+            #         pose.header.frame_id = "map"
+            #         pose.header.stamp = rospy.Time.now()
+            #         pose.pose = self.previous_poses[j]
+            #         object_pos = ObjectMeasurement()
+            #         object_pos.pose = pose
+            #         object_pos.initialization_id = j
+            #         object_pos.timestep = self.timestep
+            #         object_pos.observation_id = self.measurement_counter
+            #         object_pos.location_id = self.room_id
+            #         object_pos.negative_observation = True
+            #         self.positions_pub.publish(object_pos)
+            #         published = True
 
         # compute min an max vertices in x and y to be able to sample uniform
         # then use rejection sampling to get points within the polygon
@@ -174,6 +177,7 @@ class MeasurementVisServer(object):
                     object_pos.initialization_id = -1
                     object_pos.timestep = self.timestep
                     object_pos.observation_id = self.measurement_counter
+                    object_pos.location_id = self.room_id
                     object_pos.negative_observation = False
                     self.measurement_counter += 1
                     self.positions_pub.publish(object_pos)
@@ -389,6 +393,18 @@ class MeasurementVisServer(object):
         self.marker_poses[object_id] = feedback.pose
         self.marker_times[object_id] = rospy.Time.now().to_sec()
 
+
+    def clicked_callback(self, clicked_pose):
+
+        non_initialized = np.nonzero(self.initialized == False)[0]
+
+        if len(non_initialized) == 0:
+            return
+
+        ind = non_initialized[0]
+
+        self.initialized[ind] = True
+        self.initialize_object_marker(ind, clicked_pose.pose.pose)
 
     def callback(self, clicked_pose):
 
