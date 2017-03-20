@@ -240,6 +240,7 @@ class RBPFMParticle(object):
         pot_sP = np.zeros((nbr_targets, nbr_observations, spatial_dim, spatial_dim)) # the Kalman filter covariances
         pot_fP = np.zeros((nbr_targets, nbr_observations, feature_dim, feature_dim))
         likelihoods = np.zeros((nbr_targets, 2*nbr_observations+1))
+        weights = np.zeros((nbr_targets,))
         #pc = np.zeros((nbr_targets, 2*nbr_observations+1))
 
         spatial_likelihoods = np.zeros((nbr_targets, nbr_observations))
@@ -271,9 +272,10 @@ class RBPFMParticle(object):
             likelihoods[k, :nbr_observations] = spatial_likelihoods[k, :]*feature_likelihoods[k, :]
             likelihoods[k, nbr_observations:2*nbr_observations] = pjump*feature_likelihoods[k, :]
             likelihoods[k, 2*nbr_observations] = pnone
-            likelihoods[k] = 1./np.sum(likelihoods[k])*likelihoods[k]
+            weights[k] = np.sum(likelihoods[k])
+            likelihoods[k] = 1./weights[k]*likelihoods[k]
 
-        return likelihoods, pot_sm, pot_fm, pot_sP, pot_fP
+        return likelihoods, weights, pot_sm, pot_fm, pot_sP, pot_fP
 
 
     def target_sample_update(self, nbr_observations, likelihoods):
@@ -329,8 +331,8 @@ class RBPFMParticle(object):
         #pdclutter = 0.1 # probability density of clutter measurement
         #pjump = 0.04
         #pnone = 0.04
-        pjump = 0.05
-        pnone = 0.1
+        pjump = 0.001
+        pnone = 0.001
         spatial_var = self.spatial_std*self.spatial_std
         feature_var = self.feature_std*self.feature_std
 
@@ -342,25 +344,27 @@ class RBPFMParticle(object):
         sR = spatial_var*np.identity(spatial_dim) # measurement noise
         fR = feature_var*np.identity(feature_dim) # measurement noise
 
-        likelihoods, pot_sm, pot_fm, pot_sP, pot_fP = self.target_compute_update(spatial_measurements, feature_measurements, pnone, pjump, sR, fR)
+        likelihoods, weights, pot_sm, pot_fm, pot_sP, pot_fP = \
+            self.target_compute_update(spatial_measurements, feature_measurements,
+                                       pnone, pjump, sR, fR)
 
         states = self.target_sample_update(nbr_observations, likelihoods)
 
-        weights_update = 1.
+        #weights_update = 1.
 
         for k, i in enumerate(states):
 
             if i == 2*nbr_observations:
                 self.nbr_noise += 1
                 #self.c.append(nbr_targets) # to know that we observed noise!
-                weights_update *= 0.1 #1.0#likelihoods[k, i]/pc[k, i]
+                #weights_update *= 0.1 #1.0#likelihoods[k, i]/pc[k, i]
             elif i >= nbr_observations:
                 self.sm[k] = spatial_measurements[i % nbr_observations]
                 self.sP[k] = spatial_var*np.eye(spatial_dim)
                 self.did_jump = True
                 self.nbr_jumps += 1
                 self.target_jumps[k] += 1
-                weights_update *= 0.2
+                #weights_update *= 0.2
             else:
                 self.sm[k] = pot_sm[k, i]
                 self.fm[k] = pot_fm[k, i]
@@ -368,9 +372,9 @@ class RBPFMParticle(object):
                 self.fP[k] = pot_fP[k, i]
                 self.associations[observation_id] = i
                 self.nbr_assoc += 1
-                weights_update *= 1.0#likelihoods[k, i]/pc[k, i]
+                #weights_update *= 1.0#likelihoods[k, i]/pc[k, i]
 
-        return weights_update
+        return np.prod(weights)
 
 
     def meas_compute_update(self, spatial_measurements, feature_measurements,
