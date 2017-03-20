@@ -127,7 +127,7 @@ class RBPFMTTFilter(object):
         print self.last_time
         print time
 
-    def joint_update(self, spatial_measurements, feature_measurements, time, observation_id):
+    def joint_update(self, spatial_measurements, feature_measurements, time, observation_id, location_ids):
 
         if time != self.last_time:
             pass#
@@ -149,7 +149,7 @@ class RBPFMTTFilter(object):
         nbr_noise = np.zeros((self.nbr_particles,))
         nbr_assoc = np.zeros((self.nbr_particles,))
         for i, p in enumerate(self.particles):
-            weights_update = self.particles[i].target_joint_update(spatial_measurements, feature_measurements, time, observation_id)
+            weights_update = self.particles[i].target_joint_update(spatial_measurements, feature_measurements, time, observation_id, location_ids)
             #weights_update = self.particles[i].meas_joint_update(spatial_measurements, feature_measurements, time, observation_id)
             print "Updating particle", i, " with weight: ", weights_update, ", particle weight: ", self.weights[i], ", did jump: ", p.did_jump, "nbr jumps: ", p.nbr_jumps
             self.weights[i] *= weights_update
@@ -186,7 +186,7 @@ class RBPFMTTFilter(object):
         plt.clf()
         plt.cla()
 
-    def initialize_target(self, target_id, spatial_measurement, feature_measurement):
+    def initialize_target(self, target_id, spatial_measurement, feature_measurement, location_id):
 
         for i, p in enumerate(self.particles):
             p.sm[target_id] = spatial_measurement
@@ -194,4 +194,5 @@ class RBPFMTTFilter(object):
             p.sP[target_id] = self.spatial_std*self.spatial_std*np.eye(self.dim)
             p.fP[target_id] = self.feature_std*self.feature_std*np.eye(self.feature_dim)
             p.c.append(target_id)
+            p.location_ids[target_id] = location_id
             p.last_time = 0

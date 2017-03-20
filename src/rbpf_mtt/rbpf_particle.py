@@ -29,6 +29,7 @@ class RBPFMParticle(object):
         self.sP = np.zeros((nbr_targets, spatial_dim, spatial_dim)) # the Kalman filter covariances
         self.fP = np.zeros((nbr_targets, feature_dim, feature_dim))
         self.measurement_partitions = np.zeros((nbr_targets), dtype=int) # assigns targets to measurement sets
+        self.location_ids = np.zeros((nbr_targets), dtype=int) # assigns targets to measurement sets
         self.last_time = -1
         self.associations = {}
         self.did_jump = False
@@ -227,7 +228,7 @@ class RBPFMParticle(object):
 
         return weights_update
 
-    def target_compute_update(self, spatial_measurements, feature_measurements, pnone, pjump, sR, fR):
+    def target_compute_update(self, spatial_measurements, feature_measurements, pnone, pjump, sR, fR, location_ids):
 
         nbr_targets = self.sm.shape[0]
         spatial_dim = self.sm.shape[1]
@@ -248,6 +249,12 @@ class RBPFMParticle(object):
 
         # compute the likelihoods for all the observations and targets
         for k in range(0, nbr_targets):
+
+            if np.sum(location_ids == self.location_ids[k]) == 0: # no observations from target room
+                target_pnone = 1. - pnone
+            else:
+                target_pnone = pnone
+
             for j in range(0, nbr_observations):
 
                 sy = spatial_measurements[j] - self.sm[k]
@@ -271,14 +278,14 @@ class RBPFMParticle(object):
 
             likelihoods[k, :nbr_observations] = spatial_likelihoods[k, :]*feature_likelihoods[k, :]
             likelihoods[k, nbr_observations:2*nbr_observations] = pjump*feature_likelihoods[k, :]
-            likelihoods[k, 2*nbr_observations] = pnone
+            likelihoods[k, 2*nbr_observations] = target_pnone
             weights[k] = np.sum(likelihoods[k])
             likelihoods[k] = 1./weights[k]*likelihoods[k]
 
         return likelihoods, weights, pot_sm, pot_fm, pot_sP, pot_fP
 
 
-    def target_sample_update(self, nbr_observations, likelihoods):
+    def target_sample_update(self, nbr_observations, likelihoods, location_ids):
 
         nbr_targets = self.sm.shape[0]
         spatial_dim = self.sm.shape[1]
@@ -286,6 +293,7 @@ class RBPFMParticle(object):
 
         # sample measurement -> target mapping
         states = np.zeros((nbr_targets,), dtype=int)
+        sampled_states = np.zeros((nbr_targets,), dtype=int)
         while True:
             sampled_states = -1*np.ones((nbr_targets,), dtype=int)
             nbr_no_meas = 0
@@ -302,8 +310,6 @@ class RBPFMParticle(object):
 
             if nbr_sampled + nbr_no_meas == nbr_targets:
                 #unique_list = unique.tolist()
-                for j in range(0, nbr_targets):
-                    self.c.append(sampled_states[j])
                 break
 
             nbr_jumps = np.sum(states >= nbr_observations) - nbr_no_meas
@@ -311,11 +317,16 @@ class RBPFMParticle(object):
             print "Found assoc: ", nbr_assoc, ", nbr jumps: ", nbr_jumps, ", no meas: ", nbr_no_meas
             print "Continuing...."
 
+        for j in range(0, nbr_targets):
+            self.c.append(sampled_states[j])
+            if sampled_states[j] > 0:
+                self.location_ids[j] = location_ids[sampled_states[j]]
+
         return states
 
     # this functions takes in several measurements at the same timestep
     # and does association jointly, leading to fewer particles with low weights
-    def target_joint_update(self, spatial_measurements, feature_measurements, time, observation_id):
+    def target_joint_update(self, spatial_measurements, feature_measurements, time, observation_id, location_ids):
 
         self.c = []
         self.did_jump = False
@@ -346,9 +357,9 @@ class RBPFMParticle(object):
 
         likelihoods, weights, pot_sm, pot_fm, pot_sP, pot_fP = \
             self.target_compute_update(spatial_measurements, feature_measurements,
-                                       pnone, pjump, sR, fR)
+                                       pnone, pjump, sR, fR, location_ids)
 
-        states = self.target_sample_update(nbr_observations, likelihoods)
+        states = self.target_sample_update(nbr_observations, likelihoods, location_ids)
 
         #weights_update = 1.
 

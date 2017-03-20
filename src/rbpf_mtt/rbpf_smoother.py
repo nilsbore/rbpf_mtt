@@ -24,6 +24,7 @@ class RBPFMTTSmoother(object):
         self.timestep_weights = 1./nbr_particles*np.ones((max_iterations, nbr_particles))
         self.spatial_measurements = np.zeros((max_iterations, 2))
         self.feature_measurements = np.zeros((max_iterations, feature_dim))
+        self.location_ids = np.zeros((max_iterations,), dtype=int)
         self.timesteps = np.zeros((max_iterations,), dtype=int)
         self.cindex = np.zeros((max_iterations,), dtype=int)
 
@@ -47,9 +48,9 @@ class RBPFMTTSmoother(object):
         self.nbr_timesteps += 1
         self.cindex[self.nbr_timesteps] = 0
 
-    def joint_update(self, spatial_measurements, feature_measurements, time, observation_id):
+    def joint_update(self, spatial_measurements, feature_measurements, time, observation_id, location_ids):
 
-        self.filter.joint_update(spatial_measurements, feature_measurements, time, observation_id)
+        self.filter.joint_update(spatial_measurements, feature_measurements, time, observation_id, location_ids)
 
         # seems a bit unnecessary to save two copies of every particle, also we don't actually
         # update the kalman filters until after all of the observations are integrated ...
@@ -59,6 +60,7 @@ class RBPFMTTSmoother(object):
         for k in range(0, spatial_measurements.shape[0]):
             self.spatial_measurements[self.nbr_timesteps] = spatial_measurements[k]
             self.feature_measurements[self.nbr_timesteps] = feature_measurements[k]
+            self.location_ids[self.nbr_timesteps] = location_ids[k]
             self.timesteps[self.nbr_timesteps] = time
             self.timestep_particles[self.nbr_timesteps] = copy.deepcopy(self.filter.particles)
             self.timestep_weights[self.nbr_timesteps] = np.array(self.filter.weights)
@@ -73,12 +75,13 @@ class RBPFMTTSmoother(object):
 
         self.filter.predict()
 
-    def initialize_target(self, target_id, spatial_measurement, feature_measurement, time):
+    def initialize_target(self, target_id, spatial_measurement, feature_measurement, time, location_id):
 
         self.spatial_measurements[self.nbr_timesteps] = spatial_measurement
         self.feature_measurements[self.nbr_timesteps] = feature_measurement
+        self.location_ids[self.nbr_timesteps] = location_id
         self.timesteps[self.nbr_timesteps] = time
-        self.filter.initialize_target(target_id, spatial_measurement, feature_measurement)
+        self.filter.initialize_target(target_id, spatial_measurement, feature_measurement, location_id)
         #self.timestep_particles[self.nbr_timesteps] = copy.deepcopy(self.filter.particles)
         self.timestep_particles[self.nbr_timesteps] = copy.deepcopy(self.filter.particles)
         self.timestep_weights[self.nbr_timesteps] = np.array(self.filter.weights)

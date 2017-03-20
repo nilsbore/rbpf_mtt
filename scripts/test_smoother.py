@@ -41,6 +41,7 @@ class SmootherNode(object):
 
         self.joint_spatial_measurement = None
         self.joint_feature_measurement = None
+        self.location_ids = None
         self.all_timesteps = []
         self.split_timesteps = [[]]
 
@@ -58,7 +59,7 @@ class SmootherNode(object):
         for i in range(0, measurement_dim):
             feature_measurement[i] = pose.feature[i]
 
-        return spatial_measurement, feature_measurement
+        return spatial_measurement, feature_measurement, pose.location_id
 
     def publish_estimates(self):
 
@@ -82,7 +83,8 @@ class SmootherNode(object):
             self.smoother.joint_update(self.joint_spatial_measurement,
                                        self.joint_feature_measurement,
                                        self.last_time,
-                                       self.last_observation_id)
+                                       self.last_observation_id,
+                                       self.locations_ids)
             if self.publish_maps:
                 self.par_visualize_marginals(self.smoother.filter)
             self.publish_estimates()
@@ -96,7 +98,7 @@ class SmootherNode(object):
 
         self.all_timesteps.append(pose.timestep)
         is_init = np.all(self.initialized)
-        spatial_measurement, feature_measurement = self.measurements_from_pose(pose)
+        spatial_measurement, feature_measurement, location_id = self.measurements_from_pose(pose)
 
         if self.joint_spatial_measurement is None or (is_init and pose.timestep != self.last_time):
             #self.last_time = pose.timestep
@@ -107,11 +109,13 @@ class SmootherNode(object):
             self.joint_spatial_measurement = np.reshape(spatial_measurement, (1, -1))
             self.joint_feature_measurement = np.reshape(feature_measurement, (1, -1))
             self.timesteps = [ pose.timestep ]
+            self.locations_ids = [ location_id ]
             self.timesteps.append(pose.timestep)
             self.split_timesteps.append([ pose.timestep ])
         elif is_init and pose.timestep != 0:
             self.joint_spatial_measurement = np.vstack((self.joint_spatial_measurement, spatial_measurement))
             self.joint_feature_measurement = np.vstack((self.joint_feature_measurement, feature_measurement))
+            self.locations_ids = np.append(self.locations_ids, location_id)
             self.timesteps.append(pose.timestep)
             self.split_timesteps[-1].append(pose.timestep)
 
@@ -126,7 +130,7 @@ class SmootherNode(object):
         print self.nbr_targets
         if not is_init and pose.initialization_id != -1: #and pose.timestep == 0:
             print "Not intialized, adding initialization..."
-            self.smoother.initialize_target(pose.initialization_id, spatial_measurement, feature_measurement, pose.timestep)
+            self.smoother.initialize_target(pose.initialization_id, spatial_measurement, feature_measurement, pose.timestep, location_id)
             self.initialized[pose.initialization_id] = True
             if np.all(self.initialized):
                 self.par_visualize_marginals(self.smoother.filter)
