@@ -30,6 +30,7 @@ class RBPFMParticle(object):
         self.fP = np.zeros((nbr_targets, feature_dim, feature_dim))
         self.measurement_partitions = np.zeros((nbr_targets), dtype=int) # assigns targets to measurement sets
         self.location_ids = np.zeros((nbr_targets), dtype=int) # assigns targets to measurement sets
+        self.might_have_jumped = np.zeros((nbr_targets), dtype=bool)
         self.last_time = -1
         self.associations = {}
         self.did_jump = False
@@ -250,10 +251,13 @@ class RBPFMParticle(object):
         # compute the likelihoods for all the observations and targets
         for k in range(0, nbr_targets):
 
+            target_pjump = pjump
+            target_pnone = pnone
+
             if np.sum(location_ids == self.location_ids[k]) == 0: # no observations from target room
-                target_pnone = 1. - pnone
-            else:
-                target_pnone = pnone
+                target_pnone = 0.1 - pnone
+                if self.might_have_jumped[k]:
+                    target_pjump = pjump / 0.1
 
             for j in range(0, nbr_observations):
 
@@ -318,9 +322,16 @@ class RBPFMParticle(object):
             print "Continuing...."
 
         for j in range(0, nbr_targets):
+
+            # observation from target room but associated with noise
+            if np.sum(location_ids == self.location_ids[j]) > 0 and sampled_states[j] == -1:
+                self.might_have_jumped[j] = True
+
             self.c.append(sampled_states[j])
             if sampled_states[j] > 0:
+                self.might_have_jumped[j] = False # associated with target or jump
                 self.location_ids[j] = location_ids[sampled_states[j]]
+            #self.last_c[j] = sampled_states[j]
 
         return states
 
