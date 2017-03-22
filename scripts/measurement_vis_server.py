@@ -32,6 +32,7 @@ class MeasurementVisServer(object):
 
         self.marker_pub = rospy.Publisher('measurement_markers', MarkerArray, queue_size=50)
         self.positions_pub = rospy.Publisher('object_positions', ObjectMeasurement, queue_size=50)
+        self.init_positions_pub = rospy.Publisher('object_initialization_positions', ObjectMeasurement, queue_size=50)
         self.target_pub = rospy.Publisher('get_target_poses', PoseArray, queue_size=50)
         #self.object_pub = rospy.Publisher('measurement_markers', MarkerArray, queue_size=10)'
 
@@ -47,6 +48,7 @@ class MeasurementVisServer(object):
         self.previous_poses = [Pose() for j in range(0, self.nbr_targets)]
         self.did_move = np.zeros((self.nbr_targets,), dtype=bool)
         self.marker_times = np.zeros((self.nbr_targets,), dtype=np.int64)
+        self.marker_clicked_times = np.zeros((self.nbr_targets,), dtype=np.int64)
 
         self.regions, self.centers = get_regions()
         self.room_time = 0
@@ -74,6 +76,8 @@ class MeasurementVisServer(object):
     def set_target_poses(self, poses):
 
         for j, p in enumerate(poses.poses):
+            if p.position.x == 0 and p.position.x == 0:
+                continue
             name = "object_marker_" + str(j)
             p.position.z = 0.15
             self.marker_poses[j] = p
@@ -90,6 +94,24 @@ class MeasurementVisServer(object):
     def maybe_publish_rooms(self, event):
 
         self.publish_target_poses()
+
+        seconds = rospy.Time.now().to_sec()
+        for j in range(0, self.nbr_targets):
+            mtime = self.marker_clicked_times[j]
+            if mtime != 0 and seconds - mtime > 1:
+                print "Publishing initial position for object ", j
+                self.marker_clicked_times[j] = 0
+                pose = PoseStamped()
+                pose.header.frame_id = "map"
+                pose.header.stamp = rospy.Time.now()
+                pose.pose = self.marker_poses[j]
+                object_pos = ObjectMeasurement()
+                object_pos.pose = pose
+                object_pos.initialization_id = j
+                object_pos.timestep = 0
+                object_pos.observation_id = 0
+                object_pos.negative_observation = False
+                self.init_positions_pub.publish(object_pos)
 
         seconds = rospy.Time.now().to_sec()
         if self.room_time == 0 or seconds - self.room_time < 1:
@@ -339,6 +361,11 @@ class MeasurementVisServer(object):
         marker.name = "object_marker_" + str(object_id)
         marker.description = "Object " + str(object_id)
 
+        click_marker = InteractiveMarker()
+        click_marker.header.frame_id = "map"
+        click_marker.name = "button_object_marker_" + str(object_id)
+        click_marker.description = ""
+
         # the marker in the middle
         box_marker = Marker()
         box_marker.type = Marker.CUBE
@@ -356,6 +383,8 @@ class MeasurementVisServer(object):
         box_control.always_visible = True
         #box_control.always_visible = False
         box_control.markers.append(box_marker)
+        box_control.name = "button"
+        box_control.interaction_mode = InteractiveMarkerControl.BUTTON
         marker.controls.append(box_control)
 
         # move x
@@ -380,19 +409,25 @@ class MeasurementVisServer(object):
         self.marker_server.applyChanges()
 
     def marker_feedback(self, feedback):
-        #self.in_feedback=True
-        #vertex_name = feedback.marker_name.rsplit('-', 1)
-        object_id = int(feedback.marker_name.rsplit('_', 1)[-1])
-        print "Marker id: ", object_id
-        #self.topo_map.update_node_vertex(node_name, vertex_index, feedback.pose)
-        #self.update_needed=True
 
-        # just do something if there has been no updates for the
-        # last x seconds
-        feedback.pose.position.z = 0.15
-        self.marker_poses[object_id] = feedback.pose
-        self.marker_times[object_id] = rospy.Time.now().to_sec()
+        if feedback.control_name == "button":
+            object_id = int(feedback.marker_name.rsplit('_', 1)[-1])
+            self.marker_clicked_times[object_id] = rospy.Time.now().to_sec()
+            print "Marker id:", feedback.marker_name
+            print "Object id: ", object_id
+        elif feedback.control_name == "move_plane":
+            #self.in_feedback=True
+            #vertex_name = feedback.marker_name.rsplit('-', 1)
+            object_id = int(feedback.marker_name.rsplit('_', 1)[-1])
+            print "Marker id: ", object_id
+            #self.topo_map.update_node_vertex(node_name, vertex_index, feedback.pose)
+            #self.update_needed=True
 
+            # just do something if there has been no updates for the
+            # last x seconds
+            feedback.pose.position.z = 0.15
+            self.marker_poses[object_id] = feedback.pose
+            self.marker_times[object_id] = rospy.Time.now().to_sec()
 
     def clicked_callback(self, clicked_pose):
 

@@ -61,7 +61,9 @@ class SmootherServer(object):
         self.path_pubs = [rospy.Publisher('forward_detected_paths', String, queue_size=50),
                           rospy.Publisher('forward_propagated_paths', String, queue_size=50),
                           rospy.Publisher('backward_detected_paths', String, queue_size=50),
-                          rospy.Publisher('backward_propagated_paths', String, queue_size=50),]
+                          rospy.Publisher('backward_propagated_paths', String, queue_size=50)]
+        self.init_path_pub = rospy.Publisher('init_paths', String, queue_size=50)
+        self.init_paths = ""
 
         #self.initialized = np.zeros((self.nbr_targets,), dtype=bool)
 
@@ -70,6 +72,7 @@ class SmootherServer(object):
         self.is_through = False
         self.autostep = False
         self.is_smoothed = False
+        rospy.Subscriber("object_initialization_positions", ObjectMeasurement, self.init_callback)
         rospy.Subscriber("filter_measurements", ObjectMeasurement, self.obs_callback)
         rospy.Subscriber("get_target_poses", PoseArray, self.poses_callback)
 
@@ -308,6 +311,44 @@ class SmootherServer(object):
         print "Init features: ", self.feature_measurements[:self.nbr_targets]
 
         return True
+
+    # initialization message, find the closes observation and publish its paths
+    def init_callback(self, obs):
+
+        # find the closest position in the previous timestep
+        if self.iteration == 0:
+            return
+
+        last_timestep = self.timesteps[self.iteration-1]
+        inds = np.where(self.timesteps == last_timestep)[0]
+
+        pos = np.array([obs.pose.pose.position.x, obs.pose.pose.position.y])
+
+        minval = 1000.0
+        minind = -1
+        for i in inds:
+            print "I: ", i
+            print pos
+            print self.spatial_measurements[i]
+            vec = self.spatial_measurements[i, :2].flatten()#p.array([self.spatial_measurements[i, 0], self.spatial_measurements[i, 1]])
+            print vec
+            val = np.linalg.norm(vec - pos)
+            if val < minval:
+                minval = val
+                minind = i
+
+        if minind == -1:
+            return
+
+        if len(self.init_paths) > 0:
+            self.init_paths += ","
+        self.init_paths += self.cloud_paths[minind]
+
+        self.init_path_pub.publish(self.init_paths)
+
+        print "Minind: ", minind, ", min val: ", minval
+        print "Closest cloud: ", self.cloud_paths[minind]
+
 
     # here we got a measurement, with pose and feature, time is in the pose header
     def obs_callback(self, obs):

@@ -6,7 +6,8 @@
     <arg name="number_targets" default="2"/>
     <arg name="number_noise" default="2"/>
     <arg name="config" default="moving_objects"/>
-    <arg name="db_name" default="somadata"/>
+    <!-- <arg name="db_name" default="somadata"/> -->
+    <arg name="db_name" default="chairdata"/>
     <arg name="feature_dim" default="4"/>
     <arg name="step_by_timestep" default="true"/>
     <arg name="publish_maps" default="true"/>
