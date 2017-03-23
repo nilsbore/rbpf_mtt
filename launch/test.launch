@@ -14,6 +14,7 @@
     <arg name="spatial_std" default="0.3"/>
     <arg name="feature_std" default="0.2"/>
     <arg name="discrim_factor" default="2.0"/>
+    <arg name="is_init" default="true"/>
     <!-- <arg name="smoother" default="false"/> -->
 
     <include file="$(find mongodb_store)/launch/mongodb_store.launch">
@@ -42,6 +43,7 @@
         <param name="number_targets" value="$(arg number_targets)"/>
         <param name="feature_dim" value="$(arg feature_dim)"/>
         <param name="step_by_timestep" value="$(arg step_by_timestep)"/>
+        <param name="is_init" value="$(arg is_init)"/>
     </node>
 
     <node pkg="rbpf_mtt" type="measurement_simulator" name="measurement_simulator" output="screen" respawn="true">

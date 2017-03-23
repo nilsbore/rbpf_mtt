@@ -25,6 +25,7 @@ class SmootherServer(object):
         self.nbr_targets = rospy.get_param('~number_targets', 2)
         self.feature_dim = rospy.get_param('~feature_dim', 2)
         self.step_by_timestep = rospy.get_param('~step_by_timestep', True)
+        self.is_init = rospy.get_param('~is_init', True)
 
         max_iterations = 1000
 
@@ -68,7 +69,6 @@ class SmootherServer(object):
         self.init_paths = ""
         self.init_inds = -1*np.ones((self.nbr_targets,), dtype=int)
         self.init_poses = [Pose() for j in range(0, self.nbr_targets)]
-        self.is_init = True
 
         #self.initialized = np.zeros((self.nbr_targets,), dtype=bool)
 
@@ -154,6 +154,8 @@ class SmootherServer(object):
             self.is_playing = True
             self.iteration = 0
         elif goal.action == 'step':
+            if not self.is_playing:
+                self.do_load(goal.observations_file)
             self.autostep = False
             self.step()
         elif goal.action == 'autostep':
@@ -261,7 +263,8 @@ class SmootherServer(object):
                or self.timesteps[self.iteration] != first_timestep:
                break
 
-        if len(self.cloud_paths) > 0:
+        if (self.iteration == 0 and self.is_init) or \
+           (not self.is_init and len(self.cloud_paths) > 0):
             self.poses_pub.publish(init_poses)
 
         for i, paths in enumerate(clouds_paths):
@@ -270,23 +273,36 @@ class SmootherServer(object):
 
     def save_observation_sequence(self, observations_file):
 
-        self.spatial_measurements = self.spatial_measurements[:self.iteration,:]
-        self.feature_measurements = self.feature_measurements[:self.iteration,:]
-        self.timesteps = self.timesteps[:self.iteration]
-        self.spatial_positions = self.spatial_positions[:self.iteration,:,:]
-        self.target_ids = self.target_ids[:self.iteration]
-        self.observation_ids = self.observation_ids[:self.iteration]
-        self.location_ids = self.location_ids[:self.iteration]
-
-        np.savez(observations_file, spatial_measurements = self.spatial_measurements,
-                                    feature_measurements = self.feature_measurements,
-                                    timesteps = self.timesteps,
-                                    spatial_positions = self.spatial_positions,
-                                    target_ids = self.target_ids,
-                                    observation_ids = self.observation_ids,
-                                    location_ids = self.location_ids,
-                                    spatial_measurement_std = self.spatial_measurement_std,
-                                    feature_measurement_std = self.feature_measurement_std)
+        if len(self.cloud_paths) == 0:
+            self.spatial_measurements = self.spatial_measurements[:self.iteration,:]
+            self.feature_measurements = self.feature_measurements[:self.iteration,:]
+            self.timesteps = self.timesteps[:self.iteration]
+            self.spatial_positions = self.spatial_positions[:self.iteration,:,:]
+            self.target_ids = self.target_ids[:self.iteration]
+            self.observation_ids = self.observation_ids[:self.iteration]
+            self.location_ids = self.location_ids[:self.iteration]
+            np.savez(observations_file, spatial_measurements = self.spatial_measurements,
+                                        feature_measurements = self.feature_measurements,
+                                        timesteps = self.timesteps,
+                                        spatial_positions = self.spatial_positions,
+                                        target_ids = self.target_ids,
+                                        observation_ids = self.observation_ids,
+                                        location_ids = self.location_ids,
+                                        spatial_measurement_std = self.spatial_measurement_std,
+                                        feature_measurement_std = self.feature_measurement_std)
+        else:
+            np.savez(observations_file, spatial_measurements = self.spatial_measurements,
+                                        feature_measurements = self.feature_measurements,
+                                        timesteps = self.timesteps,
+                                        spatial_positions = self.spatial_positions,
+                                        target_ids = self.target_ids,
+                                        observation_ids = self.observation_ids,
+                                        location_ids = self.location_ids,
+                                        spatial_measurement_std = self.spatial_measurement_std,
+                                        feature_measurement_std = self.feature_measurement_std,
+                                        clouds = self.cloud_paths,
+                                        detection_type = self.detection_type,
+                                        going_backward = self.going_backward)
 
         SmootherServer._result.response = "Save observations at " + observations_file
 
@@ -308,7 +324,7 @@ class SmootherServer(object):
         self.feature_measurement_std = npzfile['feature_measurement_std']
         if 'clouds' in npzfile:
             self.cloud_paths = npzfile['clouds']
-            self.is_init = False
+            #self.is_init = False
         if 'detection_type' in npzfile:
             self.detection_type = npzfile['detection_type']
         if 'going_backward' in npzfile:

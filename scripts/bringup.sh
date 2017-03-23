@@ -4,6 +4,7 @@ SESSION=simulation
 # rcv_slam and rcv_localization should be enough
 WS_PATH="/home/nbore/instance_places/catkin_ws"
 DB_PATH="/home/nbore/moving_objects_db"
+DATA_PATH="/home/nbore/Data/moving_chairs_semantic_map"
 SOURCE_WS="${WS_PATH}/devel/setup.bash"
 # Built with the rcv_fuser_node from rcv_slam
 
@@ -16,7 +17,7 @@ tmux new-window -t $SESSION:1 -n 'rviz'
 tmux new-window -t $SESSION:2 -n 'simulation'
 tmux new-window -t $SESSION:3 -n 'axclient'
 tmux new-window -t $SESSION:4 -n 'cloud_loader'
-#tmux new-window -t $SESSION:7 -n 'inference_node'
+tmux new-window -t $SESSION:5 -n 'feature_vis'
 
 tmux select-window -t $SESSION:0
 tmux send-keys "roscore" C-m
@@ -38,6 +39,10 @@ tmux send-keys "rosrun actionlib axclient.py /observation_db"
 tmux select-window -t $SESSION:4
 tmux send-keys "source $SOURCE_WS" C-m
 tmux send-keys "roslaunch rbpf_processing cloud_observation_loader.launch"
+
+tmux select-window -t $SESSION:5
+tmux send-keys "source $SOURCE_WS" C-m
+tmux send-keys "rosrun rbpf_processing visualize_features.py"
 
 # Set default window
 tmux select-window -t $SESSION:0
