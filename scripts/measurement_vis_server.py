@@ -76,12 +76,19 @@ class MeasurementVisServer(object):
     def set_target_poses(self, poses):
 
         for j, p in enumerate(poses.poses):
+
             if p.position.x == 0 and p.position.x == 0:
                 continue
-            name = "object_marker_" + str(j)
-            p.position.z = 0.15
-            self.marker_poses[j] = p
-            self.marker_server.setPose(name, p)
+
+            if not self.initialized[j]:
+                self.initialized[j] = True
+                self.initialize_object_marker(j, p)
+            else:
+                name = "object_marker_" + str(j)
+                p.position.z = 0.15
+                self.marker_poses[j] = p
+                self.marker_server.setPose(name, p)
+
         self.marker_server.applyChanges()
 
     def publish_target_poses(self):

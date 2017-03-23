@@ -64,6 +64,9 @@ class SmootherServer(object):
                           rospy.Publisher('backward_propagated_paths', String, queue_size=50)]
         self.init_path_pub = rospy.Publisher('init_paths', String, queue_size=50)
         self.init_paths = ""
+        self.init_inds = -1*np.ones((self.nbr_targets,), dtype=int)
+        self.init_poses = [Pose() for j in range(0, self.nbr_targets)]
+        self.is_init = True
 
         #self.initialized = np.zeros((self.nbr_targets,), dtype=bool)
 
@@ -202,15 +205,21 @@ class SmootherServer(object):
 
         first_timestep = self.timesteps[self.iteration]
 
-        poses = PoseArray()
-        poses.header.frame_id = 'map'
-        for j in range(0, self.nbr_targets):
-            p = Pose()
-            p.position.x = self.spatial_positions[self.iteration, j, 0]
-            p.position.y = self.spatial_positions[self.iteration, j, 1]
-            poses.poses.append(p)
+        init_poses = PoseArray()
+        init_poses.header.frame_id = 'map'
+        init_poses.poses = self.init_poses
+        init_inds = np.copy(self.init_inds)
 
-        self.poses_pub.publish(poses)
+        if len(self.cloud_paths) == 0:
+            poses = PoseArray()
+            poses.header.frame_id = 'map'
+            for j in range(0, self.nbr_targets):
+                p = Pose()
+                p.position.x = self.spatial_positions[self.iteration, j, 0]
+                p.position.y = self.spatial_positions[self.iteration, j, 1]
+                poses.poses.append(p)
+
+            self.poses_pub.publish(poses)
 
         clouds_paths = ["", "", "", ""]
 
@@ -227,12 +236,19 @@ class SmootherServer(object):
             obs.timestep = self.timesteps[self.iteration]
 
             if len(self.cloud_paths) > 0:
+                inds = np.where(init_inds == -1)[0]
+                if len(inds) > 0:
+                    init_poses.poses[inds[0]] = obs.pose.pose
+                    init_inds[inds[0]] = 0 # dummy
+
+            if len(self.cloud_paths) > 0:
                 ind = self.object_type_index()
                 if len(clouds_paths[ind]) > 0:
                     clouds_paths[ind] += ","
                 clouds_paths[ind] += self.cloud_paths[self.iteration]
 
-            self.obs_pub.publish(obs)
+            if self.is_init:
+                self.obs_pub.publish(obs)
             if self.is_smoothed:
                 self.smooth_pub.publish(self.iteration)
 
@@ -241,6 +257,9 @@ class SmootherServer(object):
             if (not self.step_by_timestep) or self.iteration >= len(self.timesteps) \
                or self.timesteps[self.iteration] != first_timestep:
                break
+
+        if len(self.cloud_paths) > 0:
+            self.poses_pub.publish(init_poses)
 
         for i, paths in enumerate(clouds_paths):
             self.path_pubs[i].publish(paths)
@@ -283,6 +302,7 @@ class SmootherServer(object):
         self.feature_measurement_std = npzfile['feature_measurement_std']
         if 'clouds' in npzfile:
             self.cloud_paths = npzfile['clouds']
+            self.is_init = False
         if 'detection_type' in npzfile:
             self.detection_type = npzfile['detection_type']
         if 'going_backward' in npzfile:
@@ -327,11 +347,7 @@ class SmootherServer(object):
         minval = 1000.0
         minind = -1
         for i in inds:
-            print "I: ", i
-            print pos
-            print self.spatial_measurements[i]
             vec = self.spatial_measurements[i, :2].flatten()#p.array([self.spatial_measurements[i, 0], self.spatial_measurements[i, 1]])
-            print vec
             val = np.linalg.norm(vec - pos)
             if val < minval:
                 minval = val
@@ -339,6 +355,28 @@ class SmootherServer(object):
 
         if minind == -1:
             return
+
+        inds = np.where(self.init_inds == -1)[0]
+        if len(inds) > 0:
+            self.init_inds[inds[0]] = minind
+            p = Pose()
+            p.position.x = self.spatial_measurements[minind, 0]
+            p.position.y = self.spatial_measurements[minind, 1]
+            self.init_poses[inds[0]] = p
+
+        if len(inds) == 1: # we initialized all the targets!
+            self.spatial_measurements = np.vstack((self.spatial_measurements[self.init_inds, :], self.spatial_measurements))
+            self.feature_measurements = np.vstack((self.feature_measurements[self.init_inds, :], self.feature_measurements))
+            self.timesteps = np.concatenate((0*self.timesteps[self.init_inds], self.timesteps+1))
+            self.spatial_positions = np.vstack((self.spatial_positions[inds, :], self.spatial_positions))
+            self.target_ids = np.concatenate((np.arange(0, len(self.init_inds), dtype=int), self.target_ids))
+            self.observation_ids = np.arange(0, len(self.timesteps), dtype=int)
+            self.cloud_paths = np.concatenate((self.cloud_paths[self.init_inds], self.cloud_paths))
+            self.detection_type = np.concatenate((self.detection_type[self.init_inds], self.detection_type))
+            self.going_backward = np.concatenate((self.going_backward[self.init_inds], self.going_backward))
+            self.is_init = True
+            self.is_playing = True
+            self.iteration = 0
 
         if len(self.init_paths) > 0:
             self.init_paths += ","
@@ -348,6 +386,7 @@ class SmootherServer(object):
 
         print "Minind: ", minind, ", min val: ", minval
         print "Closest cloud: ", self.cloud_paths[minind]
+        print "Init inds: ", self.init_inds
 
 
     # here we got a measurement, with pose and feature, time is in the pose header
