@@ -40,6 +40,8 @@ class SmootherServer(object):
         self.target_ids = np.zeros((max_iterations,), dtype=int)
         # N dimensions, this is probably not really needed
         self.observation_ids = np.zeros((max_iterations,), dtype=int)
+        # N dimensions, location id
+        self.location_ids = np.zeros((max_iterations,), dtype=int)
 
         # these are specifically for objects extracted through change detection
         self.cloud_paths = []
@@ -232,6 +234,7 @@ class SmootherServer(object):
             obs.pose.pose.position.y = self.spatial_measurements[self.iteration, 1]
             obs.initialization_id = self.target_ids[self.iteration]
             obs.observation_id = self.observation_ids[self.iteration]
+            obs.location_id = self.location_ids[self.iteration]
             print "Publishing observation: ", self.iteration, " with timestep: ", self.timesteps[self.iteration] #, " and cloud: ", self.cloud_paths[self.iteration]
             obs.timestep = self.timesteps[self.iteration]
 
@@ -273,6 +276,7 @@ class SmootherServer(object):
         self.spatial_positions = self.spatial_positions[:self.iteration,:,:]
         self.target_ids = self.target_ids[:self.iteration]
         self.observation_ids = self.observation_ids[:self.iteration]
+        self.location_ids = self.location_ids[:self.iteration]
 
         np.savez(observations_file, spatial_measurements = self.spatial_measurements,
                                     feature_measurements = self.feature_measurements,
@@ -280,6 +284,7 @@ class SmootherServer(object):
                                     spatial_positions = self.spatial_positions,
                                     target_ids = self.target_ids,
                                     observation_ids = self.observation_ids,
+                                    location_ids = self.location_ids,
                                     spatial_measurement_std = self.spatial_measurement_std,
                                     feature_measurement_std = self.feature_measurement_std)
 
@@ -298,6 +303,7 @@ class SmootherServer(object):
         self.spatial_positions = npzfile['spatial_positions']
         self.target_ids = npzfile['target_ids']
         self.observation_ids = npzfile['observation_ids']
+        self.location_ids = npzfile['location_ids']
         self.spatial_measurement_std = npzfile['spatial_measurement_std']
         self.feature_measurement_std = npzfile['feature_measurement_std']
         if 'clouds' in npzfile:
@@ -371,6 +377,7 @@ class SmootherServer(object):
             self.spatial_positions = np.vstack((self.spatial_positions[inds, :], self.spatial_positions))
             self.target_ids = np.concatenate((np.arange(0, len(self.init_inds), dtype=int), self.target_ids))
             self.observation_ids = np.arange(0, len(self.timesteps), dtype=int)
+            self.location_ids = np.concatenate((self.location_ids[self.init_inds], self.location_ids))
             self.cloud_paths = np.concatenate((self.cloud_paths[self.init_inds], self.cloud_paths))
             self.detection_type = np.concatenate((self.detection_type[self.init_inds], self.detection_type))
             self.going_backward = np.concatenate((self.going_backward[self.init_inds], self.going_backward))
@@ -401,6 +408,7 @@ class SmootherServer(object):
         self.spatial_measurements[self.iteration, 1] = obs.pose.pose.position.y
         self.target_ids[self.iteration] = obs.initialization_id
         self.observation_ids[self.iteration] = obs.observation_id
+        self.location_ids[self.iteration] = obs.location_id
         self.timesteps[self.iteration] = obs.timestep
 
         for j, p in enumerate(self.target_poses.poses):
