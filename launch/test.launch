@@ -3,7 +3,7 @@
     <arg name="map"/>
     <arg name="db_path" default="/home/nbore/mongodb_store"/>
     <arg name="test" default="false"/>
-    <arg name="number_targets" default="2"/>
+    <arg name="number_targets" default="7"/>
     <arg name="number_noise" default="2"/>
     <arg name="config" default="moving_objects"/>
     <!-- <arg name="db_name" default="somadata"/> -->
@@ -12,7 +12,7 @@
     <arg name="step_by_timestep" default="true"/>
     <arg name="publish_maps" default="true"/>
     <arg name="spatial_std" default="0.3"/>
-    <arg name="feature_std" default="0.2"/>
+    <arg name="feature_std" default="5.0"/>
     <arg name="discrim_factor" default="2.0"/>
     <arg name="is_init" default="true"/>
     <!-- <arg name="smoother" default="false"/> -->
