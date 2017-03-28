@@ -11,8 +11,9 @@
     <arg name="feature_dim" default="4"/>
     <arg name="step_by_timestep" default="true"/>
     <arg name="publish_maps" default="true"/>
-    <arg name="spatial_std" default="0.3"/>
-    <arg name="feature_std" default="5.0"/>
+    <arg name="number_particles" default="300"/>
+    <arg name="spatial_std" default="0.1"/>
+    <arg name="feature_std" default="6.0"/>
     <arg name="discrim_factor" default="2.0"/>
     <arg name="is_init" default="true"/>
     <!-- <arg name="smoother" default="false"/> -->
@@ -38,6 +39,7 @@
         <param name="spatial_std" value="$(arg spatial_std)"/>
         <param name="feature_std" value="$(arg feature_std)"/>
         <param name="feature_dim" value="$(arg feature_dim)"/>
+        <param name="number_particles" value="$(arg number_particles)"/>
     </node>
     <node pkg="rbpf_mtt" type="smoother_server.py" name="smoother_server" output="screen" respawn="true" unless="$(arg test)">
         <param name="number_targets" value="$(arg number_targets)"/>

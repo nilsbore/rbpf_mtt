@@ -53,14 +53,14 @@ class RBPFMParticle(object):
     def predict(self, measurement_partition=None):
 
         spatial_process_noise = 0.03
-        feature_process_noise = 0.01
+        feature_process_noise = 0.0 #1#1
 
-        sQ = np.identity(self.sm.shape[1]) # process noise
-        fQ = np.identity(self.fm.shape[1]) # process noise
+        sQ = spatial_process_noise*np.identity(self.sm.shape[1]) # process noise
+        fQ = feature_process_noise*np.identity(self.fm.shape[1]) # process noise
 
         for j in range(0, self.sm.shape[0]):
-            self.sm[j] = self.sm[j]
-            self.fm[j] = self.fm[j]
+            #self.sm[j] = self.sm[j]
+            #self.fm[j] = self.fm[j]
             self.sP[j] = self.sP[j] + sQ
             self.fP[j] = self.fP[j] + fQ
 
@@ -256,11 +256,13 @@ class RBPFMParticle(object):
         spatial_likelihoods = np.zeros((nbr_targets, nbr_observations))
         feature_likelihoods = np.zeros((nbr_targets, nbr_observations))
 
+        self.predict()
+
         # compute the likelihoods for all the observations and targets
         for k in range(0, nbr_targets):
 
             # This is an absolute probability
-            target_pnone = 0.01 # This is absolute!
+            target_pnone = 0.015 # This is absolute!
             # These probabilites are proportional to each other, but also absolute
             target_pprop = 0.95 # probability of local movement to this measurement
             target_pjump = 0.05 # probability of jumping to this measurement
@@ -312,7 +314,7 @@ class RBPFMParticle(object):
             feature_expected_likelihood = gauss_expected_likelihood(self.fm[k], fS)
 
             likelihood[:nbr_observations] = spatial_likelihoods[k, :]*feature_likelihoods[k, :]
-            likelihood[nbr_observations:2*nbr_observations] = 0.001*spatial_expected_likelihood*feature_likelihoods[k, :]
+            likelihood[nbr_observations:2*nbr_observations] = 0.00035*spatial_expected_likelihood*feature_likelihoods[k, :]
             likelihood[2*nbr_observations] = spatial_expected_likelihood*feature_expected_likelihood*pdensity
             proposal = prior*likelihood
             weights[k] = np.sum(proposal)
