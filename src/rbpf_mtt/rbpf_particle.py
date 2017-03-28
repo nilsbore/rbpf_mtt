@@ -314,7 +314,7 @@ class RBPFMParticle(object):
             feature_expected_likelihood = gauss_expected_likelihood(self.fm[k], fS)
 
             likelihood[:nbr_observations] = spatial_likelihoods[k, :]*feature_likelihoods[k, :]
-            likelihood[nbr_observations:2*nbr_observations] = 0.00035*spatial_expected_likelihood*feature_likelihoods[k, :]
+            likelihood[nbr_observations:2*nbr_observations] = 0.0002*spatial_expected_likelihood*feature_likelihoods[k, :]
             likelihood[2*nbr_observations] = spatial_expected_likelihood*feature_expected_likelihood*pdensity
             proposal = prior*likelihood
             weights[k] = np.sum(proposal)
