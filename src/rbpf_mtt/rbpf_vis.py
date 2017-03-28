@@ -159,18 +159,23 @@ def estimates_to_markers(poses, jumps):
         sphere_marker.header.stamp = rospy.Time.now()
         sphere_marker.ns = "estimate_namespace"
         sphere_marker.id = len(estimate_markers.markers)
-        sphere_marker.type = Marker.CYLINDER
+        #sphere_marker.type = Marker.CYLINDER
+        sphere_marker.type = Marker.ARROW
         sphere_marker.action = Marker.ADD
         sphere_marker.pose.position.x = poses[j, 0]
         sphere_marker.pose.position.y = poses[j, 1]
-        sphere_marker.pose.position.z = 0.2
+        #sphere_marker.pose.position.z = 0.2
+        sphere_marker.pose.position.z = 2.6
         sphere_marker.pose.orientation.x = 0.
-        sphere_marker.pose.orientation.y = 0.
+        sphere_marker.pose.orientation.y = 1.
         sphere_marker.pose.orientation.z = 0.
         sphere_marker.pose.orientation.w = 1.
-        sphere_marker.scale.x = 0.1
-        sphere_marker.scale.y = 0.1
-        sphere_marker.scale.z = 0.4
+        #sphere_marker.scale.x = 0.1
+        sphere_marker.scale.x = 1.0
+        #sphere_marker.scale.y = 0.1
+        sphere_marker.scale.y = 0.2
+        #sphere_marker.scale.z = 0.4
+        sphere_marker.scale.z = 0.2
         sphere_marker.color.a = 1. # Don't forget to set the alpha!
         sphere_marker.color.r = color[0]
         sphere_marker.color.g = color[1]
@@ -188,17 +193,18 @@ def estimates_to_markers(poses, jumps):
         text_marker.action = Marker.ADD
         text_marker.pose.position.x = poses[j, 0]
         text_marker.pose.position.y = poses[j, 1]
-        text_marker.pose.position.z = 0.5
+        #text_marker.pose.position.z = 0.5
+        text_marker.pose.position.z = 2.9
         text_marker.pose.orientation.x = 0.
         text_marker.pose.orientation.y = 0.
         text_marker.pose.orientation.z = 0.
         text_marker.pose.orientation.w = 1.
-        text_marker.scale.z = 0.2
+        text_marker.scale.z = 0.3
         text_marker.color.a = 1. # Don't forget to set the alpha!
         text_marker.color.r = 0.
         text_marker.color.g = 0.
         text_marker.color.b = 0.
-        text_marker.text = "Jumps: " + str(int(round(jumps[j])))
+        text_marker.text = "Object " + str(j) + "\nJumps: " + str(int(round(jumps[j])))
 
         estimate_markers.markers.append(text_marker)
 
