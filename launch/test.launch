@@ -12,10 +12,12 @@
     <arg name="step_by_timestep" default="true"/>
     <arg name="publish_maps" default="true"/>
     <arg name="number_particles" default="300"/>
-    <arg name="spatial_std" default="0.1"/>
+    <arg name="spatial_std" default="0.2"/>
     <arg name="feature_std" default="6.0"/>
     <arg name="discrim_factor" default="2.0"/>
     <arg name="is_init" default="true"/>
+    <arg name="data_path" default="$(find rbpf_processing)/data"/>
+
     <!-- <arg name="smoother" default="false"/> -->
 
     <include file="$(find mongodb_store)/launch/mongodb_store.launch">
@@ -40,6 +42,7 @@
         <param name="feature_std" value="$(arg feature_std)"/>
         <param name="feature_dim" value="$(arg feature_dim)"/>
         <param name="number_particles" value="$(arg number_particles)"/>
+        <param name="data_path" value="$(arg data_path)"/>
     </node>
     <node pkg="rbpf_mtt" type="smoother_server.py" name="smoother_server" output="screen" respawn="true" unless="$(arg test)">
         <param name="number_targets" value="$(arg number_targets)"/>

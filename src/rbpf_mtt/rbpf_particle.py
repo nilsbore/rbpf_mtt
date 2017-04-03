@@ -12,6 +12,7 @@ def gauss_pdf(y, m, P):
         return 0.
     denom = math.sqrt((2.*math.pi)**dim*np.linalg.det(P))
     if denom < 0.00001:
+        print "DENOM TOO SMALL!", denom
         return 0.
     return 1./denom*math.exp(-0.5*np.dot(d, np.linalg.solve(P, d)))
 
@@ -19,6 +20,7 @@ def gauss_expected_likelihood(m, P):
     dim = len(m)
     det = np.linalg.det(P)
     if det < 0.0000001:
+        print "DET TOO SMALL!", dim
         return 0.
     denom = 2.**dim*math.sqrt((math.pi)**dim*np.linalg.det(P))
     return 1./denom
@@ -30,6 +32,7 @@ class RBPFMParticle(object):
 
         self.spatial_std = spatial_std
         self.feature_std = feature_std
+        self.fR = self.feature_std*self.feature_std*np.identity(feature_dim)
 
         self.c = [] # the last assocations, can be dropped when new time arrives
         self.sm = np.zeros((nbr_targets, spatial_dim)) # the Kalman filter means
@@ -50,192 +53,23 @@ class RBPFMParticle(object):
         #self.current_
         # the way this is supposed to work is that, when we sample a new c, we can only do it within one set
 
-    def predict(self, measurement_partition=None):
+    def set_feature_cov(self, feature_cov):
+        self.fR = feature_cov
 
-        spatial_process_noise = 0.03
-        feature_process_noise = 0.0 #1#1
+    def predict(self, location_ids, measurement_partition=None):
 
-        sQ = spatial_process_noise*np.identity(self.sm.shape[1]) # process noise
-        fQ = feature_process_noise*np.identity(self.fm.shape[1]) # process noise
+        spatial_process_std = 0.2
+        feature_process_std = 0.0 #1#1
+
+        sQ = spatial_process_std*spatial_process_std*np.identity(self.sm.shape[1]) # process noise
+        fQ = feature_process_std*feature_process_std*np.identity(self.fm.shape[1]) # process noise
 
         for j in range(0, self.sm.shape[0]):
             #self.sm[j] = self.sm[j]
             #self.fm[j] = self.fm[j]
-            self.sP[j] = self.sP[j] + sQ
-            self.fP[j] = self.fP[j] + fQ
-
-    # this again highlights that we should take all measurements in one go
-    def negative_update(self, spatial_measurement, observation_id):
-
-        if observation_id not in self.associations:
-            return 1.
-
-        j = self.associations[observation_id]
-        sR = self.spatial_std*self.spatial_std*np.identity(spatial_dim)
-        neg_likelihood = gauss_pdf(spatial_measurement, self.sm[j], sR)
-
-        return 1. - neg_likelihood
-
-
-    # spatial_measurement is a vector with just one measurement of the object position
-    # feature_measurement is a vector with a measurement of the object feature
-    # time is a unique identifier > 0 for the measurement occasion
-    def update(self, spatial_measurement, feature_measurement, time, observation_id):
-
-        #if len(self.c) == 0 or self.c[0] == 0:
-        #    print "No associations sampled yet, can't update..."
-        #    return
-
-        if time != self.last_time:
-            self.c = []
-            self.last_time = time
-
-
-
-        # we somehow need to integrate the feature density into these clutter things
-        pclutter = 0.00002 # probability of measurement originating from noise
-        pdclutter = 0.00002 # probability density of clutter measurement
-        spatial_var = self.spatial_std*self.spatial_std
-        feature_var = self.feature_std*self.feature_std
-        pjump = 0.02
-
-        # First find out the association
-        # likelihoods for each target given
-        # each hypotheses (particles). Store the
-        # updated mean and covariance, and likelihood
-        # for each association hypothesis.
-
-        nbr_targets = self.sm.shape[0]
-        spatial_dim = self.sm.shape[1]
-        feature_dim = self.fm.shape[1]
-
-        sR = spatial_var*np.identity(spatial_dim) # measurement noise
-        fR = feature_var*np.identity(feature_dim) # measurement noise
-
-        pot_sm = np.zeros((nbr_targets, spatial_dim)) # the Kalman filter means
-        pot_fm = np.zeros((nbr_targets, feature_dim))
-        pot_sP = np.zeros((nbr_targets, spatial_dim, spatial_dim)) # the Kalman filter covariances
-        pot_fP = np.zeros((nbr_targets, feature_dim, feature_dim))
-        likelihoods = np.zeros(nbr_targets+1,)
-
-        spatial_likelihoods = np.zeros((nbr_targets,))
-        feature_likelihoods = np.zeros((nbr_targets,))
-        for j in range(0, nbr_targets):
-
-            #
-            # update step
-            #
-            #IM = H*X;
-            #IS = (R + H*P*H');
-            #K = P*H'/IS;
-            #X = X + K * (y-IM);
-            #P = P - K*IS*K';
-            #if nargout > 5
-            #   LH = gauss_pdf(y,IM,IS);
-            #end
-
-            # IM = H*X; - no process model!
-
-            sy = spatial_measurement - self.sm[j]
-            fy = feature_measurement - self.fm[j]
-
-            sS = self.sP[j] + sR # IS = (R + H*P*H');
-            fS = self.fP[j] + fR
-
-            # sP^T = sP, sR^t = sR -> sS^-1*sP = sP*sS^-1
-            sK = np.linalg.solve(sS, self.sP[j]) # K = P*H'/IS;
-            fK = np.linalg.solve(fS, self.fP[j])
-
-            #print sK.shape
-            #print self.sm[j].shape
-            #print (sK*sy).shape
-            #print sy.shape
-
-            pot_sm[j] = self.sm[j] + np.dot(sK, sy) # X = X + K * (y-IM);
-            pot_fm[j] = self.fm[j] + np.dot(fK, fy)
-            pot_sP[j] = np.dot((np.identity(spatial_dim) - sK), self.sP[j])
-            pot_fP[j] = np.dot((np.identity(feature_dim) - fK), self.fP[j])
-
-            # TODO: wait 1s, didn't they write that this should be pot_sm[j]?
-            spatial_likelihoods[j] = gauss_pdf(spatial_measurement, self.sm[j], sS)
-            feature_likelihoods[j] = gauss_pdf(feature_measurement, self.fm[j], fS)
-            #likelihoods[j] = gauss_pdf(spatial_measurement, self.sm[j], sS) * \
-            #                 gauss_pdf(feature_measurement, self.fm[j], fS)
-        likelihoods[:nbr_targets] = spatial_likelihoods*feature_likelihoods
-        likelihoods[nbr_targets] = pdclutter
-        #likelihoods = 1./np.sum(likelihoods)*likelihoods
-
-        # Optimal importance functions for target
-        # and clutter associations (i) for each particles (j)
-        #
-        #     PC(i,j) = p(c[k]==i | c[k-1], y), c=T+1 means clutter.
-
-        # INSERT CODE HERE
-
-        # CP - Prior probability of a measurement being due
-        # to clutter.
-
-        # TP = [(1-repmat(CP,size(TP,1),1)).*TP;CP];
-        # PC = LH .* TP;
-        # sp = sum(PC,1);
-        # ind = find(sp==0);
-        # if ~isempty(ind)
-        #   sp(ind)   = 1;
-        #   PC(:,ind) = ones(size(PC,1),size(ind,2))/size(PC,1);
-        # end
-        # PC = PC ./ repmat(sp,size(PC,1),1);
-
-        pc = np.zeros((nbr_targets+2,))
-        # probability of measurement given association, may arise from clutter anyways?
-        pc[:nbr_targets] = (1.-pclutter)*likelihoods[:nbr_targets]
-        pc[nbr_targets] = pclutter*likelihoods[nbr_targets]
-        pc[nbr_targets+1] = pjump
-        for picked in self.c:
-            pc[picked] = 0.
-        pc = 1./np.sum(pc)*pc
-
-        # Associate each particle to random target
-        # or clutter using the importance distribution
-        # above. Also calculate the new weights and
-        # perform corresponding updates.
-
-        # INSERT CODE HERE
-        # TP - Tx1 vector of prior probabilities for measurements
-        # hitting each of the targets. (optional, default uniform)
-        # S{j}.W = S{j}.W * LH(i,j) * TP(i) / PC(i,j);
-
-        i = np.random.choice(nbr_targets+2, p=pc) #categ_rnd()
-        # so what happens here if i ==
-        if i == nbr_targets+1:
-            weights_update = pjump
-        else:
-            weights_update = likelihoods[i]/pc[i]
-
-        if i == nbr_targets:
-            pass
-            #self.c = nbr_targets # measurement is noise
-            #we don't really care if it was associated with noise
-
-        elif i == nbr_targets+1:
-            for picked in self.c:
-                feature_likelihoods[picked] = 0.
-            feature_likelihoods = feature_likelihoods/np.sum(feature_likelihoods)
-            i = np.random.choice(nbr_targets, p=feature_likelihoods)
-            self.sm[i] = spatial_measurement
-            self.sP[i] = 1.0*np.eye(len(spatial_measurement))
-        else:
-            self.sm[i] = pot_sm[i]
-            self.fm[i] = pot_fm[i]
-            self.sP[i] = pot_sP[i]
-            self.fP[i] = pot_fP[i]
-            self.c.append(i)
-            self.associations[observation_id] = i
-
-        # Normalize the particles
-
-        # Note: this should happen in the filter
-
-        return weights_update
+            if np.sum(location_ids == self.location_ids[j]) > 0:
+                self.sP[j] = self.sP[j] + sQ
+                self.fP[j] = self.fP[j] + fQ
 
     def target_compute_update(self, spatial_measurements, feature_measurements, pnone, pjump, sR, fR, location_ids):
 
@@ -256,16 +90,16 @@ class RBPFMParticle(object):
         spatial_likelihoods = np.zeros((nbr_targets, nbr_observations))
         feature_likelihoods = np.zeros((nbr_targets, nbr_observations))
 
-        self.predict()
+        self.predict(location_ids)
 
         # compute the likelihoods for all the observations and targets
         for k in range(0, nbr_targets):
 
             # This is an absolute probability
-            target_pnone = 0.015 # This is absolute!
+            target_pnone = 0.03 # This is absolute!
             # These probabilites are proportional to each other, but also absolute
-            target_pprop = 0.95 # probability of local movement to this measurement
-            target_pjump = 0.05 # probability of jumping to this measurement
+            target_pjump = 0.1 # probability of jumping to this measurement
+            target_pprop = 1.0 - target_pjump # probability of local movement to this measurement
             pdensity = 1.0
 
             if np.sum(location_ids == self.location_ids[k]) == 0: # no observations from target room
@@ -314,7 +148,7 @@ class RBPFMParticle(object):
             feature_expected_likelihood = gauss_expected_likelihood(self.fm[k], fS)
 
             likelihood[:nbr_observations] = spatial_likelihoods[k, :]*feature_likelihoods[k, :]
-            likelihood[nbr_observations:2*nbr_observations] = 0.0002*spatial_expected_likelihood*feature_likelihoods[k, :]
+            likelihood[nbr_observations:2*nbr_observations] = 0.005*spatial_expected_likelihood*feature_likelihoods[k, :]
             likelihood[2*nbr_observations] = spatial_expected_likelihood*feature_expected_likelihood*pdensity
             proposal = prior*likelihood
             weights[k] = np.sum(proposal)
@@ -399,7 +233,7 @@ class RBPFMParticle(object):
         nbr_observations = spatial_measurements.shape[0]
 
         sR = spatial_var*np.identity(spatial_dim) # measurement noise
-        fR = feature_var*np.identity(feature_dim) # measurement noise
+        fR = self.fR #feature_var*np.identity(feature_dim) # measurement noise
 
         likelihoods, weights, pot_sm, pot_fm, pot_sP, pot_fP = \
             self.target_compute_update(spatial_measurements, feature_measurements,

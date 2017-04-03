@@ -62,6 +62,18 @@ class SmootherNode(object):
 
         return spatial_measurement, feature_measurement, pose.location_id
 
+    def covariance_from_pose(self, pose):
+
+        measurement_dim = len(pose.feature)
+
+        measurement_covariance = np.zeros((measurement_dim, measurement_dim))
+
+        for i in range(0, measurement_dim):
+            for j in range(0, measurement_dim):
+                measurement_covariance[i, j] = pose.feature_covariance[i*measurement_dim+j]
+
+        return measurement_covariance
+
     def publish_estimates(self):
 
         poses, feats, feat_covs, jumps = self.smoother.filter.estimate()
@@ -97,6 +109,8 @@ class SmootherNode(object):
         if self.is_smoothed:
             return
 
+        self.measurement_covariance = self.covariance_from_pose(pose)
+
         self.all_timesteps.append(pose.timestep)
         is_init = np.all(self.initialized)
         spatial_measurement, feature_measurement, location_id = self.measurements_from_pose(pose)
@@ -131,7 +145,8 @@ class SmootherNode(object):
         print self.nbr_targets
         if not is_init and pose.initialization_id != -1: #and pose.timestep == 0:
             print "Not intialized, adding initialization..."
-            self.smoother.initialize_target(pose.initialization_id, spatial_measurement, feature_measurement, pose.timestep, location_id)
+            self.smoother.initialize_target(pose.initialization_id, spatial_measurement, feature_measurement,
+                                            self.measurement_covariance, pose.timestep, location_id)
             self.initialized[pose.initialization_id] = True
             if np.all(self.initialized):
                 self.par_visualize_marginals(self.smoother.filter)

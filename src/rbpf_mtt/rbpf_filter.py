@@ -16,6 +16,7 @@ class RBPFMTTFilter(object):
         self.nbr_particles = nbr_particles
         self.spatial_std = spatial_std
         self.feature_std = feature_std
+        #self.feature_cov = feature_std*feature_std*np.identity(feature_dim)
 
         self.particles = [RBPFMParticle(self.dim, feature_dim, nbr_targets, spatial_std, feature_std) for i in range(0, nbr_particles)]
         self.weights = 1./nbr_particles*np.ones((nbr_particles))
@@ -186,13 +187,14 @@ class RBPFMTTFilter(object):
         plt.clf()
         plt.cla()
 
-    def initialize_target(self, target_id, spatial_measurement, feature_measurement, location_id):
+    def initialize_target(self, target_id, spatial_measurement, feature_measurement, feature_covariance, location_id):
 
         for i, p in enumerate(self.particles):
             p.sm[target_id] = spatial_measurement
             p.fm[target_id] = feature_measurement
             p.sP[target_id] = self.spatial_std*self.spatial_std*np.eye(self.dim)
-            p.fP[target_id] = self.feature_std*self.feature_std*np.eye(self.feature_dim)
+            p.fP[target_id] = feature_covariance #self.feature_std*self.feature_std*np.eye(self.feature_dim)
             p.c.append(target_id)
             p.location_ids[target_id] = location_id
             p.last_time = 0
+            p.set_feature_cov(feature_covariance)

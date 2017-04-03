@@ -82,6 +82,12 @@ public:
         return feature;
     }
 
+    Eigen::MatrixXd generate_feature_cov()
+    {
+        Eigen::MatrixXd feature_cov = feature_std*feature_std*Eigen::MatrixXd::Identity(feature_dim, feature_dim);
+        return feature_cov;
+    }
+
     Eigen::Vector2d generate_noise()
     {
 
@@ -98,12 +104,19 @@ public:
         rbpf_mtt::ObjectMeasurement meas = *pos;
 
         Eigen::VectorXd feature = generate_feature(meas.initialization_id);
+        Eigen::MatrixXd feature_cov = generate_feature_cov();
         Eigen::VectorXd noise = generate_noise();
         meas.pose.pose.position.x += noise(0);
         meas.pose.pose.position.y += noise(1);
         meas.feature.resize(feature_dim);
+        meas.feature_covariance.resize(feature_dim*feature_dim);
         for (int i = 0; i < feature_dim; ++i) {
             meas.feature[i] = feature[i];
+        }
+        for (int i = 0; i < feature_dim; ++i) {
+            for (int j = 0; j < feature_dim; ++j) {
+                meas.feature_covariance[i*feature_dim+j] = feature_cov(i, j);
+            }
         }
         clicked_pub.publish(meas);
     }

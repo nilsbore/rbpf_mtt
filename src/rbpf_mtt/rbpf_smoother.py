@@ -75,13 +75,13 @@ class RBPFMTTSmoother(object):
 
         self.filter.predict()
 
-    def initialize_target(self, target_id, spatial_measurement, feature_measurement, time, location_id):
+    def initialize_target(self, target_id, spatial_measurement, feature_measurement, feature_covariance, time, location_id):
 
         self.spatial_measurements[self.nbr_timesteps] = spatial_measurement
         self.feature_measurements[self.nbr_timesteps] = feature_measurement
         self.location_ids[self.nbr_timesteps] = location_id
         self.timesteps[self.nbr_timesteps] = time
-        self.filter.initialize_target(target_id, spatial_measurement, feature_measurement, location_id)
+        self.filter.initialize_target(target_id, spatial_measurement, feature_measurement, feature_covariance, location_id)
         #self.timestep_particles[self.nbr_timesteps] = copy.deepcopy(self.filter.particles)
         self.timestep_particles[self.nbr_timesteps] = copy.deepcopy(self.filter.particles)
         self.timestep_weights[self.nbr_timesteps] = np.array(self.filter.weights)

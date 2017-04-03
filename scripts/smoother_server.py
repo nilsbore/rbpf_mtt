@@ -55,6 +55,7 @@ class SmootherServer(object):
         # The easiest way to do this is to add parameters to the measurement_simulator node
         self.spatial_measurement_std = rospy.get_param('spatial_measurement_std', 0.1)
         self.feature_measurement_std = rospy.get_param('feature_measurement_std', 0.1)
+        self.measurement_covariance = self.feature_measurement_std*self.feature_measurement_std*np.identity(self.feature_dim)
 
         #self.gmm_pub = rospy.Publisher('filter_gmms', GMMPoses, queue_size=10)
         self.poses_pub = rospy.Publisher('set_target_poses', PoseArray, queue_size=50)
@@ -232,6 +233,11 @@ class SmootherServer(object):
             obs = ObjectMeasurement()
             for i in range(0, self.feature_dim):
                 obs.feature.append(self.feature_measurements[self.iteration, i])
+
+            for i in range(0, self.feature_dim):
+                for j in range(0, self.feature_dim):
+                    obs.feature_covariance.append(self.measurement_covariance[i, j])
+
             obs.pose.pose.position.x = self.spatial_measurements[self.iteration, 0]
             obs.pose.pose.position.y = self.spatial_measurements[self.iteration, 1]
             obs.initialization_id = self.target_ids[self.iteration]
@@ -289,7 +295,8 @@ class SmootherServer(object):
                                         observation_ids = self.observation_ids,
                                         location_ids = self.location_ids,
                                         spatial_measurement_std = self.spatial_measurement_std,
-                                        feature_measurement_std = self.feature_measurement_std)
+                                        feature_measurement_std = self.feature_measurement_std,
+                                        measurement_covariance = self.measurement_covariance)
         else:
             np.savez(observations_file, spatial_measurements = self.spatial_measurements,
                                         feature_measurements = self.feature_measurements,
@@ -300,6 +307,7 @@ class SmootherServer(object):
                                         location_ids = self.location_ids,
                                         spatial_measurement_std = self.spatial_measurement_std,
                                         feature_measurement_std = self.feature_measurement_std,
+                                        measurement_covariance = self.measurement_covariance,
                                         clouds = self.cloud_paths,
                                         detection_type = self.detection_type,
                                         going_backward = self.going_backward)
@@ -322,6 +330,7 @@ class SmootherServer(object):
         self.location_ids = npzfile['location_ids']
         self.spatial_measurement_std = npzfile['spatial_measurement_std']
         self.feature_measurement_std = npzfile['feature_measurement_std']
+        self.measurement_covariance = npzfile['measurement_covariance']
         if 'clouds' in npzfile:
             self.cloud_paths = npzfile['clouds']
             #self.is_init = False
