@@ -58,7 +58,7 @@ class RBPFMParticle(object):
 
     def predict(self, location_ids, measurement_partition=None):
 
-        spatial_process_std = 0.2
+        spatial_process_std = 0.3
         feature_process_std = 0.0 #1#1
 
         sQ = spatial_process_std*spatial_process_std*np.identity(self.sm.shape[1]) # process noise
@@ -96,38 +96,37 @@ class RBPFMParticle(object):
         for k in range(0, nbr_targets):
 
             # This is an absolute probability
-            target_pnone = 0.03 # This is absolute!
+            target_pnone = 0.3 # This is absolute!
             # These probabilites are proportional to each other, but also absolute
-            target_pjump = 0.1 # probability of jumping to this measurement
+            target_pjump = 0.03 # probability of jumping to this measurement
             target_pprop = 1.0 - target_pjump # probability of local movement to this measurement
-            pdensity = 1.0
 
             if np.sum(location_ids == self.location_ids[k]) == 0: # no observations from target room
                 if self.might_have_jumped[k]:
-                    target_pnone = 1. - target_pnone - target_pprop / (1. - target_pnone) # computed so that the jump probabilities stay the same!
+                    target_pnone += target_pprop / (target_pjump + target_pprop) * (1. - target_pnone) # computed so that the jump probabilities stay the same!
                 else:
-                    target_pnone = 1. - target_pnone - target_pprop / (1. - target_pnone) # computed so that the jump probabilities stay the same!
+                    target_pnone += target_pprop / (target_pjump + target_pprop) * (1. - target_pnone) # computed so that the jump probabilities stay the same!
                 target_pprop = 0. # can't have any local movement here!
 
             prior = np.zeros((2*nbr_observations+1))
-            prior_norm = nbr_observations * (target_pprop + target_pjump) / (1. - target_pnone)
-            prior[:nbr_observations] = target_pprop / prior_norm
-            prior[nbr_observations:2*nbr_observations] = target_pjump / prior_norm
+            prior_norm = (1. - target_pnone) / (target_pprop + target_pjump) / float(nbr_observations)
+            prior[:nbr_observations] = target_pprop * prior_norm
+            prior[nbr_observations:2*nbr_observations] = target_pjump * prior_norm
             prior[2*nbr_observations] = target_pnone
 
             likelihood = np.zeros((2*nbr_observations+1))
+
+            sS = self.sP[k] + sR # IS = (R + H*P*H');
+            fS = self.fP[k] + fR
+
+            # sP^T = sP, sR^t = sR -> sS^-1*sP = sP*sS^-1
+            sK = np.linalg.solve(sS, self.sP[k]) # K = P*H'/IS;
+            fK = np.linalg.solve(fS, self.fP[k])
 
             for j in range(0, nbr_observations):
 
                 sy = spatial_measurements[j] - self.sm[k]
                 fy = feature_measurements[j] - self.fm[k]
-
-                sS = self.sP[k] + sR # IS = (R + H*P*H');
-                fS = self.fP[k] + fR
-
-                # sP^T = sP, sR^t = sR -> sS^-1*sP = sP*sS^-1
-                sK = np.linalg.solve(sS, self.sP[k]) # K = P*H'/IS;
-                fK = np.linalg.solve(fS, self.fP[k])
 
                 pot_sm[k, j] = self.sm[k] + np.dot(sK, sy) # X = X + K * (y-IM);
                 pot_fm[k, j] = self.fm[k] + np.dot(fK, fy)
@@ -148,8 +147,8 @@ class RBPFMParticle(object):
             feature_expected_likelihood = gauss_expected_likelihood(self.fm[k], fS)
 
             likelihood[:nbr_observations] = spatial_likelihoods[k, :]*feature_likelihoods[k, :]
-            likelihood[nbr_observations:2*nbr_observations] = 0.005*spatial_expected_likelihood*feature_likelihoods[k, :]
-            likelihood[2*nbr_observations] = spatial_expected_likelihood*feature_expected_likelihood*pdensity
+            likelihood[nbr_observations:2*nbr_observations] = spatial_expected_likelihood*feature_likelihoods[k, :]
+            likelihood[2*nbr_observations] = spatial_expected_likelihood*feature_expected_likelihood
             proposal = prior*likelihood
             weights[k] = np.sum(proposal)
             likelihoods[k] = 1./weights[k]*proposal

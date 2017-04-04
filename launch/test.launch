@@ -12,7 +12,7 @@
     <arg name="step_by_timestep" default="true"/>
     <arg name="publish_maps" default="true"/>
     <arg name="number_particles" default="300"/>
-    <arg name="spatial_std" default="0.2"/>
+    <arg name="spatial_std" default="0.1"/>
     <arg name="feature_std" default="6.0"/>
     <arg name="discrim_factor" default="2.0"/>
     <arg name="is_init" default="true"/>
