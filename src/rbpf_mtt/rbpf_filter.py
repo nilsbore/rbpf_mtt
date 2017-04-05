@@ -5,10 +5,18 @@ from cartesian import cartesian_inds
 from rbpf_mtt.rbpf_particle import RBPFMParticle
 import random
 import matplotlib.pyplot as plt
+import multiprocessing as mp
+from functools import partial
+import sys
+
+def par_update_particle(spatial_measurements, feature_measurements, time, observation_id, location_ids, p):
+
+    return p.target_joint_update(spatial_measurements, feature_measurements, time, observation_id, location_ids), p
 
 class RBPFMTTFilter(object):
 
-    def __init__(self, nbr_targets, nbr_particles, feature_dim, spatial_std=0.63, feature_std=0.45):
+    def __init__(self, nbr_targets, nbr_particles, feature_dim, spatial_std=0.63,
+                 feature_std=0.45, pjump=0.025, pnone=0.25, qjump=0.025, qnone=0.25):
 
         self.dim = 2 # I would like for this to be global instead
         self.feature_dim = feature_dim
@@ -18,7 +26,8 @@ class RBPFMTTFilter(object):
         self.feature_std = feature_std
         #self.feature_cov = feature_std*feature_std*np.identity(feature_dim)
 
-        self.particles = [RBPFMParticle(self.dim, feature_dim, nbr_targets, spatial_std, feature_std) for i in range(0, nbr_particles)]
+        self.particles = [RBPFMParticle(self.dim, feature_dim, nbr_targets, spatial_std,
+                                        feature_std, pjump, pnone, qjump, qnone) for i in range(0, nbr_particles)]
         self.weights = 1./nbr_particles*np.ones((nbr_particles))
 
         self.last_time = -1
@@ -102,32 +111,6 @@ class RBPFMTTFilter(object):
         for p in self.particles:
             p.predict()
 
-
-    def single_update(self, spatial_measurement, feature_measurement, time, observation_id):
-
-        if time != self.last_time:
-            pass#self.predict()
-
-        #if self.last_time != time and self.last_time != -1:
-        if time != self.last_time and self.time_since_resampling > 10:
-            #self.multinomial_resample()
-            self.time_since_resampling += 1
-            self.resampled = False
-        else:
-            self.time_since_resampling += 1
-            self.resampled = False
-
-        self.last_time = time
-
-        for i, p in enumerate(self.particles):
-            weights_update = p.update(spatial_measurement, feature_measurement, time, observation_id)
-            print "Updating particle", i, " with weight: ", weights_update, ", particle weight: ", self.weights[i]
-            self.weights[i] *= weights_update
-        self.weights = 1./np.sum(self.weights)*self.weights
-
-        print self.last_time
-        print time
-
     def joint_update(self, spatial_measurements, feature_measurements, time, observation_id, location_ids):
 
         if time != self.last_time:
@@ -146,34 +129,50 @@ class RBPFMTTFilter(object):
 
         self.last_time = time
 
-        nbr_jumps = np.zeros((self.nbr_particles,))
-        nbr_noise = np.zeros((self.nbr_particles,))
-        nbr_assoc = np.zeros((self.nbr_particles,))
-        for i, p in enumerate(self.particles):
-            weights_update = self.particles[i].target_joint_update(spatial_measurements, feature_measurements, time, observation_id, location_ids)
-            #weights_update = self.particles[i].meas_joint_update(spatial_measurements, feature_measurements, time, observation_id)
-            print "Updating particle", i, " with weight: ", weights_update, ", particle weight: ", self.weights[i], ", did jump: ", p.did_jump, "nbr jumps: ", p.nbr_jumps
-            self.weights[i] *= weights_update
-            nbr_jumps[i] = p.nbr_jumps
-            nbr_noise[i] = p.nbr_noise
-            nbr_assoc[i] = p.nbr_assoc
+        func = partial(par_update_particle, spatial_measurements, feature_measurements, time, observation_id, location_ids)
+        pool = mp.Pool()
+        results = pool.map(func, self.particles)
+        weight_updates, particle_updates = zip(*results)
+        self.particles = list(particle_updates)
+
+        self.weights *= np.array(weight_updates)
         self.weights = 1./np.sum(self.weights)*self.weights
 
-        #plt.plot(nbr_jumps, self.weights)
-        plt.scatter(nbr_jumps, np.log(self.weights), marker="*", color='red')
-        plt.scatter(nbr_noise, np.log(self.weights), marker="*", color='green')
-        plt.scatter(nbr_assoc, np.log(self.weights), marker="*", color='blue')
-
-        plt.xlabel('time (s)')
-        plt.ylabel('voltage (mV)')
-        plt.title('About as simple as it gets, folks')
-        plt.grid(True)
-        plt.savefig("test.png")
-        plt.clf()
-        plt.cla()
+        # nbr_jumps = np.zeros((self.nbr_particles,))
+        # nbr_noise = np.zeros((self.nbr_particles,))
+        # nbr_assoc = np.zeros((self.nbr_particles,))
+        # for i, p in enumerate(self.particles):
+        #
+        #     pool = mp.Pool()
+        #
+        #     a = "hi"
+        #     b = "there"
+        #
+        #
+        #     weights_update = self.particles[i].target_joint_update(spatial_measurements, feature_measurements, time, observation_id, location_ids)
+        #     #weights_update = self.particles[i].meas_joint_update(spatial_measurements, feature_measurements, time, observation_id)
+        #     print "Updating particle", i, " with weight: ", weights_update, ", particle weight: ", self.weights[i], ", did jump: ", p.did_jump, "nbr jumps: ", p.nbr_jumps
+        #     self.weights[i] *= weights_update
+        #     nbr_jumps[i] = p.nbr_jumps
+        #     nbr_noise[i] = p.nbr_noise
+        #     nbr_assoc[i] = p.nbr_assoc
+        # self.weights = 1./np.sum(self.weights)*self.weights
+        #
+        # #plt.plot(nbr_jumps, self.weights)
+        # plt.scatter(nbr_jumps, np.log(self.weights), marker="*", color='red')
+        # plt.scatter(nbr_noise, np.log(self.weights), marker="*", color='green')
+        # plt.scatter(nbr_assoc, np.log(self.weights), marker="*", color='blue')
+        #
+        # plt.xlabel('time (s)')
+        # plt.ylabel('voltage (mV)')
+        # plt.title('About as simple as it gets, folks')
+        # plt.grid(True)
+        # plt.savefig("test.png")
+        # plt.clf()
+        # plt.cla()
         #plt.show()
 
-        if self.effective_sample_size() < 0.8*float(self.nbr_particles):
+        if self.effective_sample_size() < 0.05*float(self.nbr_particles):
             self.multinomial_resample()
             #self.systematic_resample()
         else:

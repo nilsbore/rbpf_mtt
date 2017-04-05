@@ -12,11 +12,18 @@
     <arg name="step_by_timestep" default="true"/>
     <arg name="publish_maps" default="true"/>
     <arg name="number_particles" default="300"/>
-    <arg name="spatial_std" default="0.1"/>
+    <arg name="spatial_std" default="0.15"/>
     <arg name="feature_std" default="6.0"/>
     <arg name="discrim_factor" default="2.0"/>
     <arg name="is_init" default="true"/>
     <arg name="data_path" default="$(find rbpf_processing)/data"/>
+
+    <arg name="pjump" default="0.01"/>
+    <arg name="pnone" default="0.13"/>
+    <arg name="qjump" default="0.1"/>
+    <arg name="qnone" default="0.1"/>
+
+    <arg name="filter_maps" default=""/>
 
     <!-- <arg name="smoother" default="false"/> -->
 
@@ -43,6 +50,10 @@
         <param name="feature_dim" value="$(arg feature_dim)"/>
         <param name="number_particles" value="$(arg number_particles)"/>
         <param name="data_path" value="$(arg data_path)"/>
+        <param name="pjump" value="$(arg pjump)"/>
+        <param name="pnone" value="$(arg pnone)"/>
+        <param name="qjump" value="$(arg qjump)"/>
+        <param name="qnone" value="$(arg qnone)"/>
     </node>
     <node pkg="rbpf_mtt" type="smoother_server.py" name="smoother_server" output="screen" respawn="true" unless="$(arg test)">
         <param name="number_targets" value="$(arg number_targets)"/>
@@ -61,10 +72,12 @@
 
     <node pkg="rbpf_mtt" type="gmm_map_server" name="gmm_map_server" output="screen" respawn="true">
         <param name="number_targets" value="$(arg number_targets)"/>
+        <param name="filter_maps" value="$(arg filter_maps)"/>
     </node>
     <node pkg="rbpf_mtt" type="gmm_map_server" name="gmm_smoother_map_server" output="screen" respawn="true">
         <param name="number_targets" value="$(arg number_targets)"/>
         <param name="namespace" value="smoother_"/>
+        <param name="filter_maps" value="$(arg filter_maps)"/>
     </node>
 
     <node pkg="rbpf_mtt" type="measurement_vis_server.py" name="measurement_vis_server" output="screen" respawn="true">

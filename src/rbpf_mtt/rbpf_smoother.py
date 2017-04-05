@@ -9,7 +9,8 @@ import sys
 # functions to the filter as a member
 class RBPFMTTSmoother(object):
 
-    def __init__(self, nbr_targets, nbr_particles, feature_dim, nbr_backward_sims, spatial_std, feature_std):
+    def __init__(self, nbr_targets, nbr_particles, feature_dim, nbr_backward_sims, spatial_std,
+                 feature_std, pjump=0.025, pnone=0.25, qjump=0.025, qnone=0.25):
 
         self.nbr_targets = nbr_targets
         self.nbr_particles = nbr_particles
@@ -18,7 +19,8 @@ class RBPFMTTSmoother(object):
 
         max_iterations = 1000
 
-        self.filter = RBPFMTTFilter(nbr_targets, nbr_particles, feature_dim, spatial_std, feature_std)
+        self.filter = RBPFMTTFilter(nbr_targets, nbr_particles, feature_dim, spatial_std,
+                                    feature_std, pjump, pnone, qjump, qnone)
 
         self.timestep_particles = [[] for i in range(0, max_iterations)]
         self.timestep_weights = 1./nbr_particles*np.ones((max_iterations, nbr_particles))
