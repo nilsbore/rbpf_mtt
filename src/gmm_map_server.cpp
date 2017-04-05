@@ -67,11 +67,26 @@ public:
 
     string map_namespace;
 
+    vector<int> filter_indices;
+
     GMMMapServer() : n()
     {
         ros::NodeHandle pn("~");
         pn.param<int>("number_targets", nbr_targets, 4);
         pn.param<string>("namespace", map_namespace, "");
+        string filter_string;
+        pn.param<string>("filter_maps", filter_string, "");
+
+        if (filter_string.empty()) {
+            cout << "Filter string is empty: " << filter_string << endl;
+            for (int i = 0; i < nbr_targets; ++i) {
+                filter_indices.push_back(i);
+            }
+        }
+        else {
+            std::istringstream in(filter_string);
+            std::copy(std::istream_iterator<int>(in), std::istream_iterator<int>(), std::back_inserter(filter_indices));
+        }
 
         pubs.resize(nbr_targets);
         for (int j = 0; j < nbr_targets; ++j) {
@@ -244,13 +259,13 @@ public:
     bool multi_service_callback(rbpf_mtt::PublishGMMMaps::Request& req, rbpf_mtt::PublishGMMMaps::Response& res)
     {
         #pragma omp parallel for
-        for (size_t i = 0; i < req.gmms.size(); ++i) {
-            publish_map(req.gmms[i]);
+        for (size_t i = 0; i < filter_indices.size(); ++i) {
+            publish_map(req.gmms[filter_indices[i]]);
         }
 
-        for (size_t i = 0; i < req.gmms.size(); ++i) {
-            publish_particles(req.gmms[i]);
-            costmap_publishers[req.gmms[i].id]->publishCostmap();
+        for (size_t i = 0; i < filter_indices.size(); ++i) {
+            publish_particles(req.gmms[filter_indices[i]]);
+            costmap_publishers[req.gmms[filter_indices[i]].id]->publishCostmap();
         }
         return true;
     }
