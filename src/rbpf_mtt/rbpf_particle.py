@@ -58,7 +58,7 @@ class RBPFMParticle(object):
 
     def predict(self, location_ids, measurement_partition=None):
 
-        spatial_process_std = 0.3
+        spatial_process_std = 0.25
         feature_process_std = 0.0 #1#1
 
         sQ = spatial_process_std*spatial_process_std*np.identity(self.sm.shape[1]) # process noise
@@ -71,7 +71,28 @@ class RBPFMParticle(object):
                 self.sP[j] = self.sP[j] + sQ
                 self.fP[j] = self.fP[j] + fQ
 
-    def target_compute_update(self, spatial_measurements, feature_measurements, pnone, pjump, sR, fR, location_ids):
+    def compute_prior(self, j, pjump, pnone, location_ids, nbr_observations):
+
+        pprop = 1.0 - pjump # probability of local movement to this measurement
+
+        if np.sum(location_ids == self.location_ids[j]) == 0: # no observations from target room
+            if self.might_have_jumped[j]:
+                pnone += pprop / (pjump + pprop) * (1. - pnone) # computed so that the jump probabilities stay the same!
+            else:
+                pnone += pprop / (pjump + pprop) * (1. - pnone) # computed so that the jump probabilities stay the same!
+            pprop = 0. # can't have any local movement here!
+
+        prior = np.zeros((2*nbr_observations+1))
+        prior_norm = (1. - pnone) / (pprop + pjump) / float(nbr_observations)
+        prior[:nbr_observations] = pprop * prior_norm
+        prior[nbr_observations:2*nbr_observations] = pjump * prior_norm
+        prior[2*nbr_observations] = pnone
+
+        return prior
+
+
+    def target_compute_update(self, spatial_measurements, feature_measurements,
+                              pnone, pjump, qnone, qjump, sR, fR, location_ids):
 
         nbr_targets = self.sm.shape[0]
         spatial_dim = self.sm.shape[1]
@@ -84,6 +105,7 @@ class RBPFMParticle(object):
         pot_sP = np.zeros((nbr_targets, nbr_observations, spatial_dim, spatial_dim)) # the Kalman filter covariances
         pot_fP = np.zeros((nbr_targets, nbr_observations, feature_dim, feature_dim))
         likelihoods = np.zeros((nbr_targets, 2*nbr_observations+1))
+        prop_ratios = np.zeros((nbr_targets, 2*nbr_observations+1))
         weights = np.zeros((nbr_targets,))
         #pc = np.zeros((nbr_targets, 2*nbr_observations+1))
 
@@ -95,24 +117,8 @@ class RBPFMParticle(object):
         # compute the likelihoods for all the observations and targets
         for k in range(0, nbr_targets):
 
-            # This is an absolute probability
-            target_pnone = 0.3 # This is absolute!
-            # These probabilites are proportional to each other, but also absolute
-            target_pjump = 0.03 # probability of jumping to this measurement
-            target_pprop = 1.0 - target_pjump # probability of local movement to this measurement
-
-            if np.sum(location_ids == self.location_ids[k]) == 0: # no observations from target room
-                if self.might_have_jumped[k]:
-                    target_pnone += target_pprop / (target_pjump + target_pprop) * (1. - target_pnone) # computed so that the jump probabilities stay the same!
-                else:
-                    target_pnone += target_pprop / (target_pjump + target_pprop) * (1. - target_pnone) # computed so that the jump probabilities stay the same!
-                target_pprop = 0. # can't have any local movement here!
-
-            prior = np.zeros((2*nbr_observations+1))
-            prior_norm = (1. - target_pnone) / (target_pprop + target_pjump) / float(nbr_observations)
-            prior[:nbr_observations] = target_pprop * prior_norm
-            prior[nbr_observations:2*nbr_observations] = target_pjump * prior_norm
-            prior[2*nbr_observations] = target_pnone
+            prior = self.compute_prior(k, pjump, pnone, location_ids, nbr_observations)
+            prop_prior = self.compute_prior(k, qjump, qnone, location_ids, nbr_observations)
 
             likelihood = np.zeros((2*nbr_observations+1))
 
@@ -149,12 +155,14 @@ class RBPFMParticle(object):
             likelihood[:nbr_observations] = spatial_likelihoods[k, :]*feature_likelihoods[k, :]
             likelihood[nbr_observations:2*nbr_observations] = spatial_expected_likelihood*feature_likelihoods[k, :]
             likelihood[2*nbr_observations] = spatial_expected_likelihood*feature_expected_likelihood
-            proposal = prior*likelihood
-            weights[k] = np.sum(proposal)
-            likelihoods[k] = 1./weights[k]*proposal
+            proposal = prop_prior*likelihood
 
+            prop_prior[prop_prior == 0] = 1.
+            prop_ratios[k] = prior / prop_prior
+            weights[k] = np.sum(prior*likelihood)
+            likelihoods[k] = 1./np.sum(proposal)*proposal
 
-        return likelihoods, weights, pot_sm, pot_fm, pot_sP, pot_fP
+        return likelihoods, weights, prop_ratios, pot_sm, pot_fm, pot_sP, pot_fP
 
 
     def target_sample_update(self, nbr_observations, likelihoods, location_ids):
@@ -216,13 +224,12 @@ class RBPFMParticle(object):
 
         print "Got measurement with observations: ", spatial_measurements.shape[0]
 
-        # we somehow need to integrate the feature density into these clutter things
-        #pclutter = 0.3 # probability of measurement originating from noise
-        #pdclutter = 0.1 # probability density of clutter measurement
-        #pjump = 0.04
-        #pnone = 0.04
-        pjump = 0.001 #0.001
-        pnone = 0.0001 #0.001
+        pjump = 0.03
+        pnone = 0.3
+
+        qjump = 0.03
+        qnone = 0.3
+
         spatial_var = self.spatial_std*self.spatial_std
         feature_var = self.feature_std*self.feature_std
 
@@ -234,15 +241,17 @@ class RBPFMParticle(object):
         sR = spatial_var*np.identity(spatial_dim) # measurement noise
         fR = self.fR #feature_var*np.identity(feature_dim) # measurement noise
 
-        likelihoods, weights, pot_sm, pot_fm, pot_sP, pot_fP = \
+        likelihoods, weights, prop_ratios, pot_sm, pot_fm, pot_sP, pot_fP = \
             self.target_compute_update(spatial_measurements, feature_measurements,
-                                       pnone, pjump, sR, fR, location_ids)
+                                       pnone, pjump, qnone, qjump, sR, fR, location_ids)
 
         states = self.target_sample_update(nbr_observations, likelihoods, location_ids)
 
-        #weights_update = 1.
+        weight_update = np.prod(weights)
 
         for k, i in enumerate(states):
+
+            weight_update *= prop_ratios[k, i]
 
             if i == 2*nbr_observations:
                 self.nbr_noise += 1
@@ -264,4 +273,4 @@ class RBPFMParticle(object):
                 self.nbr_assoc += 1
                 #weights_update *= 1.0#likelihoods[k, i]/pc[k, i]
 
-        return np.prod(weights)
+        return weight_update
