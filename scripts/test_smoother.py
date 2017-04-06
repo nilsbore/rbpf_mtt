@@ -99,11 +99,11 @@ class SmootherNode(object):
                 #print self.all_timesteps
                 #print self.timesteps
                 #sys.exit()
-            self.smoother.joint_update(self.joint_spatial_measurement,
-                                       self.joint_feature_measurement,
-                                       self.last_time,
-                                       self.last_observation_id,
-                                       self.locations_ids)
+            self.smoother.update(self.joint_spatial_measurement,
+                                 self.joint_feature_measurement,
+                                 self.last_time,
+                                 self.last_observation_id,
+                                 self.locations_ids)
             if self.publish_maps:
                 self.par_visualize_marginals(self.smoother.filter)
             self.publish_estimates()

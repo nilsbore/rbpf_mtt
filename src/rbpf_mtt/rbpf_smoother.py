@@ -38,21 +38,9 @@ class RBPFMTTSmoother(object):
 
         self.filter.resample()
 
-    def single_update(self, spatial_measurement, feature_measurement, time, observation_id):
+    def update(self, spatial_measurements, feature_measurements, time, observation_id, location_ids):
 
-        self.spatial_measurements[self.nbr_timesteps] = spatial_measurement
-        self.feature_measurements[self.nbr_timesteps] = feature_measurement
-        self.timesteps[self.nbr_timesteps] = time
-        self.filter.single_update(spatial_measurement, feature_measurement, time, observation_id)
-        #self.timestep_particles[self.nbr_timesteps] = copy.deepcopy(self.filter.particles)
-        self.timestep_particles[self.nbr_timesteps] = copy.deepcopy(self.filter.particles)
-        self.timestep_weights[self.nbr_timesteps] = np.array(self.filter.weights)
-        self.nbr_timesteps += 1
-        self.cindex[self.nbr_timesteps] = 0
-
-    def joint_update(self, spatial_measurements, feature_measurements, time, observation_id, location_ids):
-
-        self.filter.joint_update(spatial_measurements, feature_measurements, time, observation_id, location_ids)
+        self.filter.update(spatial_measurements, feature_measurements, time, observation_id, location_ids)
 
         # seems a bit unnecessary to save two copies of every particle, also we don't actually
         # update the kalman filters until after all of the observations are integrated ...

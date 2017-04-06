@@ -11,7 +11,7 @@ import sys
 
 def par_update_particle(spatial_measurements, feature_measurements, time, observation_id, location_ids, p):
 
-    return p.target_joint_update(spatial_measurements, feature_measurements, time, observation_id, location_ids), p
+    return p.update(spatial_measurements, feature_measurements, time, observation_id, location_ids), p
 
 class RBPFMTTFilter(object):
 
@@ -111,7 +111,7 @@ class RBPFMTTFilter(object):
         for p in self.particles:
             p.predict()
 
-    def joint_update(self, spatial_measurements, feature_measurements, time, observation_id, location_ids):
+    def update(self, spatial_measurements, feature_measurements, time, observation_id, location_ids):
 
         if time != self.last_time:
             pass#

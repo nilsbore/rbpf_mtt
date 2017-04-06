@@ -223,7 +223,7 @@ class RBPFMParticle(object):
 
     # this functions takes in several measurements at the same timestep
     # and does association jointly, leading to fewer particles with low weights
-    def target_joint_update(self, spatial_measurements, feature_measurements, time, observation_id, location_ids):
+    def update(self, spatial_measurements, feature_measurements, time, observation_id, location_ids):
 
         self.c = []
         self.did_jump = False
