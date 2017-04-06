@@ -172,7 +172,7 @@ class RBPFMTTFilter(object):
         # plt.cla()
         #plt.show()
 
-        if self.effective_sample_size() < 0.05*float(self.nbr_particles):
+        if self.effective_sample_size() < 0.2*float(self.nbr_particles):
             self.multinomial_resample()
             #self.systematic_resample()
         else:
