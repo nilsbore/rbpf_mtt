@@ -46,6 +46,7 @@ class SmootherServer(object):
 
         # these are specifically for objects extracted through change detection
         self.cloud_paths = []
+        self.central_images = []
         self.detection_type = []
         self.going_backward = []
 
@@ -61,6 +62,8 @@ class SmootherServer(object):
         self.poses_pub = rospy.Publisher('set_target_poses', PoseArray, queue_size=50)
         self.obs_pub = rospy.Publisher('sim_filter_measurements', ObjectMeasurement, queue_size=50)
         self.smooth_pub = rospy.Publisher('smoother_vis', Int32, queue_size=50)
+
+        self.labels_pub = rospy.Publisher('save_labels', Empty, queue_size=50)
 
         self.path_pubs = [rospy.Publisher('forward_detected_paths', String, queue_size=50),
                           rospy.Publisher('forward_propagated_paths', String, queue_size=50),
@@ -149,6 +152,9 @@ class SmootherServer(object):
             self.iteration = 0
         elif goal.action == 'save':
             self.save_observation_sequence(goal.observations_file)
+        elif goal.action == 'save_labels':
+            self.labels_pub.publish()
+            SmootherServer._result.response = "Sent message to save labels"
         elif goal.action == 'load':
             self.do_load(goal.observations_file)
         elif goal.action == 'replay':
@@ -171,7 +177,7 @@ class SmootherServer(object):
         #    self.do_autostep()
         #    self.do_smooth()
         else:
-            SmootherServer._result.response = "Valid actions are: 'record', 'save', 'load', 'replay', 'step', 'autostep'"
+            SmootherServer._result.response = "Valid actions are: 'record', 'save', 'save_labels', 'load', 'replay', 'step', 'autostep'"
             #SmootherServer._result.success = False
 
         self._as.set_succeeded(SmootherServer._result)
@@ -309,6 +315,7 @@ class SmootherServer(object):
                                         feature_measurement_std = self.feature_measurement_std,
                                         measurement_covariance = self.measurement_covariance,
                                         clouds = self.cloud_paths,
+                                        central_images = self.central_images,
                                         detection_type = self.detection_type,
                                         going_backward = self.going_backward)
 
@@ -338,6 +345,8 @@ class SmootherServer(object):
             self.detection_type = npzfile['detection_type']
         if 'going_backward' in npzfile:
             self.going_backward = npzfile['going_backward']
+        if 'central_images' in npzfile:
+            self.central_images = npzfile['central_images']
 
         # This is here if we have multiple points for the first timestep, which we don't if we picked them manually
         # inits = np.sum(self.timesteps == 0)
@@ -404,6 +413,7 @@ class SmootherServer(object):
             self.observation_ids = np.arange(0, len(self.timesteps), dtype=int)
             self.location_ids = np.concatenate((self.location_ids[self.init_inds], self.location_ids))
             self.cloud_paths = np.concatenate((self.cloud_paths[self.init_inds], self.cloud_paths))
+            self.central_images = np.concatenate((self.central_images[self.init_inds], self.central_images))
             self.detection_type = np.concatenate((self.detection_type[self.init_inds], self.detection_type))
             self.going_backward = np.concatenate((self.going_backward[self.init_inds], self.going_backward))
             self.is_init = True

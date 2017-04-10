@@ -144,7 +144,7 @@ def particles_to_gmms(particles, weights, nbr_targets):
 
     return gmms
 
-def estimates_to_markers(poses, jumps):
+def estimates_to_markers(poses, jumps, timestep):
 
     estimate_markers = MarkerArray()
 
@@ -164,6 +164,7 @@ def estimates_to_markers(poses, jumps):
         sphere_marker.action = Marker.ADD
         sphere_marker.pose.position.x = poses[j, 0]
         sphere_marker.pose.position.y = poses[j, 1]
+        sphere_marker.text = str(timestep) # used for benchmarking
         #sphere_marker.pose.position.z = 0.2
         sphere_marker.pose.position.z = 2.6
         sphere_marker.pose.orientation.x = 0.

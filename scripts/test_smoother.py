@@ -2,12 +2,12 @@
 
 import numpy as np
 import rospy
-from rbpf_mtt.msg import GMMPoses, ObjectMeasurement
+from rbpf_mtt.msg import GMMPoses, ObjectMeasurement, ObjectEstimates
 from rbpf_mtt.srv import PublishGMMMap, PublishGMMMaps
 from rbpf_mtt.rbpf_filter import RBPFMTTFilter
 from rbpf_mtt.rbpf_smoother import RBPFMTTSmoother
 from rbpf_mtt.rbpf_vis import filter_to_gmms, particles_to_gmms, estimates_to_markers, smoother_to_gmms, feature_estimates_to_poses
-from geometry_msgs.msg import PoseWithCovariance
+from geometry_msgs.msg import Pose, PoseWithCovariance
 from visualization_msgs.msg import Marker, MarkerArray
 from std_msgs.msg import Empty, Int32
 from std_srvs.srv import Empty as EmptySrv
@@ -21,6 +21,7 @@ class SmootherNode(object):
         #self.poses_pub = rospy.Publisher('filter_poses', MarkerArray, queue_size=10)
         self.ready_pub = rospy.Publisher('filter_ready', Empty, queue_size=50)
         self.estimate_markers_pub = rospy.Publisher('estimate_markers', MarkerArray, queue_size=50)
+        self.estimates_pub = rospy.Publisher('object_estimates', ObjectEstimates, queue_size=50)
         self.pose_estimates_pub = rospy.Publisher('pose_estimates', GMMPoses, queue_size=50)
         self.feature_estimates_pub = rospy.Publisher('feature_estimates', GMMPoses, queue_size=50)
 
@@ -80,13 +81,25 @@ class SmootherNode(object):
 
         return measurement_covariance
 
-    def publish_estimates(self):
+    def publish_estimates(self, timestep):
 
         poses, feats, feat_covs, jumps = self.smoother.filter.estimate()
 
+        estimates = ObjectEstimates()
+        estimates.timestep = timestep
+        for j in range(0, self.nbr_targets):
+            p = Pose()
+            p.position.x = poses[j, 0]
+            p.position.y = poses[j, 1]
+            p.position.z = 0.
+            estimates.poses.poses.append(p)
+            #estimates.locations_ids.append(location_ids[j])
+            estimates.target_ids.append(j)
+        self.estimates_pub.publish(estimates)
+
         feature_poses = feature_estimates_to_poses(feats, feat_covs, self.feature_dim, self.nbr_targets)
 
-        markers = estimates_to_markers(poses, jumps)
+        markers = estimates_to_markers(poses, jumps, timestep)
         self.feature_estimates_pub.publish(feature_poses)
         self.estimate_markers_pub.publish(markers)
 
@@ -106,7 +119,7 @@ class SmootherNode(object):
                                  self.locations_ids)
             if self.publish_maps:
                 self.par_visualize_marginals(self.smoother.filter)
-            self.publish_estimates()
+            self.publish_estimates(self.last_time)
 
 
     # here we got a measurement, with pose and feature, time is in the pose header
@@ -156,7 +169,7 @@ class SmootherNode(object):
             self.initialized[pose.initialization_id] = True
             if np.all(self.initialized):
                 self.par_visualize_marginals(self.smoother.filter)
-                self.publish_estimates()
+                self.publish_estimates(pose.timestep)
 
         else:
             if not is_init:
