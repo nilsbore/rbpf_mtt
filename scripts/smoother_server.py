@@ -49,6 +49,7 @@ class SmootherServer(object):
         self.central_images = []
         self.detection_type = []
         self.going_backward = []
+        self.dims = []
 
         self.target_poses = PoseArray()
 
@@ -317,7 +318,8 @@ class SmootherServer(object):
                                         clouds = self.cloud_paths,
                                         central_images = self.central_images,
                                         detection_type = self.detection_type,
-                                        going_backward = self.going_backward)
+                                        going_backward = self.going_backward,
+                                        dims = self.dims)
 
         SmootherServer._result.response = "Save observations at " + observations_file
 
@@ -347,6 +349,8 @@ class SmootherServer(object):
             self.going_backward = npzfile['going_backward']
         if 'central_images' in npzfile:
             self.central_images = npzfile['central_images']
+        if 'dims' in npzfile:
+            self.dims = npzfile['dims']
 
         # This is here if we have multiple points for the first timestep, which we don't if we picked them manually
         # inits = np.sum(self.timesteps == 0)
