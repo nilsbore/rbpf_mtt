@@ -28,6 +28,7 @@ class SmootherNode(object):
         self.nbr_targets = rospy.get_param('~number_targets', 2)
         self.publish_maps = rospy.get_param('~publish_maps', True)
         self.spatial_std = rospy.get_param('~spatial_std', 0.63)
+        self.spatial_process_std = rospy.get_param('~spatial_process_std', 0.25)
         self.feature_std = rospy.get_param('~feature_std', 0.45)
         self.feature_dim = rospy.get_param('~feature_dim', 4)
         self.number_particles = rospy.get_param('~number_particles', 100)
@@ -38,7 +39,7 @@ class SmootherNode(object):
         self.qnone = rospy.get_param('~qnone', 0.25)
 
         self.smoother = RBPFMTTSmoother(self.nbr_targets, self.number_particles, self.feature_dim, 20, self.spatial_std,
-                                        self.feature_std, self.pjump, self.pnone, self.qjump, self.qnone)
+                                        self.spatial_process_std, self.feature_std, self.pjump, self.pnone, self.qjump, self.qnone)
         self.initialized = np.zeros((self.nbr_targets,), dtype=bool)
 
         self.service = rospy.Service('smooth_estimates', EmptySrv, self.smooth_callback)

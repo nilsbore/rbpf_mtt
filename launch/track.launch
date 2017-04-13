@@ -15,6 +15,7 @@
     <arg name="publish_maps" default="true"/>
     <arg name="number_particles" default="300"/>
     <arg name="spatial_std" default="0.15"/>
+    <arg name="spatial_process_std" default="0.25"/>
     <arg name="feature_std" default="6.0"/>
     <arg name="discrim_factor" default="2.0"/>
     <arg name="is_init" default="true"/>
@@ -48,6 +49,7 @@
         <param name="number_targets" value="$(arg number_targets)"/>
         <param name="publish_maps" value="$(arg publish_maps)"/>
         <param name="spatial_std" value="$(arg spatial_std)"/>
+        <param name="spatial_process_std" value="$(arg spatial_process_std)"/>
         <param name="feature_std" value="$(arg feature_std)"/>
         <param name="feature_dim" value="$(arg feature_dim)"/>
         <param name="number_particles" value="$(arg number_particles)"/>

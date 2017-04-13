@@ -28,10 +28,11 @@ def gauss_expected_likelihood(m, P):
 # this is in principle just a Kalman filter over all the states
 class RBPFMParticle(object):
 
-    def __init__(self, spatial_dim, feature_dim, nbr_targets, spatial_std,
+    def __init__(self, spatial_dim, feature_dim, nbr_targets, spatial_std, spatial_process_std,
                  feature_std, pjump=0.025, pnone=0.25, qjump=0.025, qnone=0.25):
 
         self.spatial_std = spatial_std
+        self.spatial_process_std = spatial_process_std
         self.feature_std = feature_std
         self.fR = self.feature_std*self.feature_std*np.identity(feature_dim)
 
@@ -65,7 +66,7 @@ class RBPFMParticle(object):
 
     def predict(self, location_ids, measurement_partition=None):
 
-        spatial_process_std = 0.25
+        spatial_process_std = self.spatial_process_std #0.25
         feature_process_std = 0.0 #1#1
 
         sQ = spatial_process_std*spatial_process_std*np.identity(self.sm.shape[1]) # process noise
