@@ -26,6 +26,7 @@ class SmootherServer(object):
         self.feature_dim = rospy.get_param('~feature_dim', 2)
         self.step_by_timestep = rospy.get_param('~step_by_timestep', True)
         self.is_init = rospy.get_param('~is_init', True)
+        self.data_path = rospy.get_param('~data_path', "")
 
         max_iterations = 1000
 
@@ -286,6 +287,8 @@ class SmootherServer(object):
 
     def save_observation_sequence(self, observations_file):
 
+        observations_path = os.path.join(self.data_path, observations_file)
+
         if len(self.cloud_paths) == 0:
             self.spatial_measurements = self.spatial_measurements[:self.iteration,:]
             self.feature_measurements = self.feature_measurements[:self.iteration,:]
@@ -294,7 +297,7 @@ class SmootherServer(object):
             self.target_ids = self.target_ids[:self.iteration]
             self.observation_ids = self.observation_ids[:self.iteration]
             self.location_ids = self.location_ids[:self.iteration]
-            np.savez(observations_file, spatial_measurements = self.spatial_measurements,
+            np.savez(observations_path, spatial_measurements = self.spatial_measurements,
                                         feature_measurements = self.feature_measurements,
                                         timesteps = self.timesteps,
                                         spatial_positions = self.spatial_positions,
@@ -305,7 +308,7 @@ class SmootherServer(object):
                                         feature_measurement_std = self.feature_measurement_std,
                                         measurement_covariance = self.measurement_covariance)
         else:
-            np.savez(observations_file, spatial_measurements = self.spatial_measurements,
+            np.savez(observations_path, spatial_measurements = self.spatial_measurements,
                                         feature_measurements = self.feature_measurements,
                                         timesteps = self.timesteps,
                                         spatial_positions = self.spatial_positions,
@@ -321,15 +324,18 @@ class SmootherServer(object):
                                         going_backward = self.going_backward,
                                         dims = self.dims)
 
-        SmootherServer._result.response = "Save observations at " + observations_file
+        SmootherServer._result.response = "Save observations at " + str(observations_path)
 
     def load_observation_sequence(self, observations_file):
-        if not os.path.isfile(observations_file):
 
-            SmootherServer._result.response = "Could not load observations at " + observations_file
+        observations_path = os.path.join(self.data_path, observations_file)
+
+        if not os.path.isfile(observations_path):
+
+            SmootherServer._result.response = "Could not load observations at " + str(observations_path)
 
             return False
-        npzfile = np.load(observations_file)
+        npzfile = np.load(observations_path)
         self.spatial_measurements = npzfile['spatial_measurements']
         self.feature_measurements = npzfile['feature_measurements']
         self.timesteps = npzfile['timesteps']

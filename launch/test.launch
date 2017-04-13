@@ -1,6 +1,8 @@
 <launch>
 
     <arg name="map"/>
+    <arg name="data_path"/>
+
     <arg name="db_path" default="/home/nbore/mongodb_store"/>
     <arg name="test" default="false"/>
     <arg name="number_targets" default="7"/>
@@ -16,7 +18,7 @@
     <arg name="feature_std" default="6.0"/>
     <arg name="discrim_factor" default="2.0"/>
     <arg name="is_init" default="true"/>
-    <arg name="data_path" default="$(find rbpf_processing)/data"/>
+    <!-- <arg name="data_path" default="$(find rbpf_processing)/data"/> -->
 
     <arg name="pjump" default="0.01"/>
     <arg name="pnone" default="0.13"/>
@@ -49,13 +51,14 @@
         <param name="feature_std" value="$(arg feature_std)"/>
         <param name="feature_dim" value="$(arg feature_dim)"/>
         <param name="number_particles" value="$(arg number_particles)"/>
-        <param name="data_path" value="$(arg data_path)"/>
+        <!-- <param name="data_path" value="$(arg data_path)"/> -->
         <param name="pjump" value="$(arg pjump)"/>
         <param name="pnone" value="$(arg pnone)"/>
         <param name="qjump" value="$(arg qjump)"/>
         <param name="qnone" value="$(arg qnone)"/>
     </node>
     <node pkg="rbpf_mtt" type="smoother_server.py" name="smoother_server" output="screen" respawn="true" unless="$(arg test)">
+        <param name="data_path" value="$(arg data_path)"/>
         <param name="number_targets" value="$(arg number_targets)"/>
         <param name="feature_dim" value="$(arg feature_dim)"/>
         <param name="step_by_timestep" value="$(arg step_by_timestep)"/>
