@@ -193,7 +193,7 @@ class RBPFMTTFilter(object):
             p.sm[target_id] = spatial_measurement
             p.fm[target_id] = feature_measurement
             p.sP[target_id] = self.spatial_std*self.spatial_std*np.eye(self.dim)
-            p.fP[target_id] = feature_covariance #self.feature_std*self.feature_std*np.eye(self.feature_dim)
+            p.fP[target_id] = 1.*feature_covariance #self.feature_std*self.feature_std*np.eye(self.feature_dim)
             p.c.append(target_id)
             p.location_ids[target_id] = location_id
             p.last_time = 0

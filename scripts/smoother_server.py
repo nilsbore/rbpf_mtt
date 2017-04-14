@@ -264,7 +264,7 @@ class SmootherServer(object):
                 ind = self.object_type_index()
                 if len(clouds_paths[ind]) > 0:
                     clouds_paths[ind] += ","
-                clouds_paths[ind] += self.cloud_paths[self.iteration]
+                clouds_paths[ind] += os.path.join(self.data_path, self.cloud_paths[self.iteration])
 
             if self.is_init:
                 self.obs_pub.publish(obs)
@@ -432,7 +432,7 @@ class SmootherServer(object):
 
         if len(self.init_paths) > 0:
             self.init_paths += ","
-        self.init_paths += self.cloud_paths[minind]
+        self.init_paths += os.path.join(self.data_path, self.cloud_paths[minind])
 
         self.init_path_pub.publish(self.init_paths)
 
