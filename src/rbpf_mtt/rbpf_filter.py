@@ -48,6 +48,7 @@ class RBPFMTTFilter(object):
             feat += self.weights[i]*p.fm
             feat_cov += self.weights[i]*p.fP
             jumps += self.weights[i]*p.target_jumps
+            print p.c
         pos = 1./np.sum(self.weights)*pos # should already be normalized
         feat = 1./np.sum(self.weights)*feat # should already be normalized
         feat_cov = 1./np.sum(self.weights)*feat_cov # should already be normalized
@@ -173,7 +174,7 @@ class RBPFMTTFilter(object):
         # plt.cla()
         #plt.show()
 
-        if self.effective_sample_size() < 0.2*float(self.nbr_particles):
+        if self.effective_sample_size() < 0.5*float(self.nbr_particles):
             self.multinomial_resample()
             #self.systematic_resample()
         else:
