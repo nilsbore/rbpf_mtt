@@ -107,12 +107,7 @@ class SmootherNode(object):
     def add_measurements(self):
 
         if np.all(self.initialized) and self.joint_spatial_measurement is not None:
-            if self.joint_spatial_measurement.shape[0] > 4:
-                print "Size: ", self.joint_spatial_measurement.shape[0]
-                print "Exiting..."
-                #print self.all_timesteps
-                #print self.timesteps
-                #sys.exit()
+
             self.smoother.update(self.joint_spatial_measurement,
                                  self.joint_feature_measurement,
                                  self.last_time,

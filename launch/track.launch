@@ -10,21 +10,21 @@
     <arg name="config" default="moving_objects"/>
     <!-- <arg name="db_name" default="somadata"/> -->
     <arg name="db_name" default="chairdata"/>
-    <arg name="feature_dim" default="4"/>
+    <arg name="feature_dim" default="3"/>
     <arg name="step_by_timestep" default="true"/>
     <arg name="publish_maps" default="true"/>
     <arg name="number_particles" default="300"/>
     <arg name="spatial_std" default="0.15"/>
-    <arg name="spatial_process_std" default="0.25"/>
+    <arg name="spatial_process_std" default="0.35"/>
     <arg name="feature_std" default="6.0"/>
     <arg name="discrim_factor" default="2.0"/>
     <arg name="is_init" default="true"/>
     <!-- <arg name="data_path" default="$(find rbpf_processing)/data"/> -->
 
-    <arg name="pjump" default="0.01"/>
-    <arg name="pnone" default="0.13"/>
-    <arg name="qjump" default="0.1"/>
-    <arg name="qnone" default="0.1"/>
+    <arg name="pjump" default="0.003"/>
+    <arg name="qjump" default="0.003"/>
+    <arg name="pnone" default="0.01"/>
+    <arg name="qnone" default="0.01"/>
 
     <arg name="filter_maps" default=""/>
 
@@ -89,6 +89,8 @@
         <param name="number_targets" value="$(arg number_targets)"/>
         <param name="number_noise" value="$(arg number_noise)"/>
     </node>
+
+    <include file="$(find rbpf_processing)/launch/cloud_observation_loader.launch"/>
 
     <!-- <node pkg="rbpf_mtt" type="test_filter.py" name="test_filter"/> -->
 

@@ -42,6 +42,8 @@ class RBPFMTTSmoother(object):
 
         self.filter.update(spatial_measurements, feature_measurements, time, observation_id, location_ids)
 
+        print "Got observation with ", spatial_measurements.shape[0], " measurements..."
+
         # seems a bit unnecessary to save two copies of every particle, also we don't actually
         # update the kalman filters until after all of the observations are integrated ...
         # but, it might not matter since we only integrate into the filter that actually had a measurement
