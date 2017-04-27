@@ -12,6 +12,7 @@ from visualization_msgs.msg import Marker, MarkerArray
 from std_msgs.msg import Empty, Int32
 from std_srvs.srv import Empty as EmptySrv
 import sys
+#import tracemalloc
 
 class SmootherNode(object):
 
@@ -254,8 +255,17 @@ class SmootherNode(object):
 
 if __name__ == '__main__':
 
+    #tracemalloc.start()
+
     rospy.init_node('test_smoother', anonymous=True)
 
     sn = SmootherNode()
 
     rospy.spin()
+
+    #snapshot = tracemalloc.take_snapshot()
+    #top_stats = snapshot.statistics('lineno')
+
+    #print("[ Top 10 ]")
+    #for stat in top_stats[:10]:
+    #    print(stat)
