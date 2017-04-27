@@ -150,7 +150,7 @@ class SmootherServer(object):
 
         try:
             reset_filter = rospy.ServiceProxy('reset_filter', EmptySrv)
-            smooth_estimates()
+            reset_filter()
         except rospy.ServiceException, e:
             SmootherServer._result.response = "Is reset filter server running?"
             print "Service call failed: %s"%e

@@ -36,6 +36,8 @@ class RBPFMTTFilter(object):
         self.resampled = False
         self.time_since_resampling = 0
         self.effective_sample_sizes = []
+        
+        self.pool = mp.Pool(processes=4)
 
     def estimate(self):
 
@@ -130,49 +132,18 @@ class RBPFMTTFilter(object):
             self.resampled = False
 
         self.last_time = time
+        
+        #weight_updates = np.zeros((self.nbr_particles,))
+        #for i, p in enumerate(self.particles):
+        #    weight_updates[i] = self.particles[i].update(spatial_measurements, feature_measurements, time, observation_id, location_ids)
 
         func = partial(par_update_particle, spatial_measurements, feature_measurements, time, observation_id, location_ids)
-        pool = mp.Pool()
-        results = pool.map(func, self.particles)
+        results = self.pool.map(func, self.particles)
         weight_updates, particle_updates = zip(*results)
         self.particles = list(particle_updates)
 
         self.weights *= np.array(weight_updates)
         self.weights = 1./np.sum(self.weights)*self.weights
-
-        # nbr_jumps = np.zeros((self.nbr_particles,))
-        # nbr_noise = np.zeros((self.nbr_particles,))
-        # nbr_assoc = np.zeros((self.nbr_particles,))
-        # for i, p in enumerate(self.particles):
-        #
-        #     pool = mp.Pool()
-        #
-        #     a = "hi"
-        #     b = "there"
-        #
-        #
-        #     weights_update = self.particles[i].target_joint_update(spatial_measurements, feature_measurements, time, observation_id, location_ids)
-        #     #weights_update = self.particles[i].meas_joint_update(spatial_measurements, feature_measurements, time, observation_id)
-        #     print "Updating particle", i, " with weight: ", weights_update, ", particle weight: ", self.weights[i], ", did jump: ", p.did_jump, "nbr jumps: ", p.nbr_jumps
-        #     self.weights[i] *= weights_update
-        #     nbr_jumps[i] = p.nbr_jumps
-        #     nbr_noise[i] = p.nbr_noise
-        #     nbr_assoc[i] = p.nbr_assoc
-        # self.weights = 1./np.sum(self.weights)*self.weights
-        #
-        # #plt.plot(nbr_jumps, self.weights)
-        # plt.scatter(nbr_jumps, np.log(self.weights), marker="*", color='red')
-        # plt.scatter(nbr_noise, np.log(self.weights), marker="*", color='green')
-        # plt.scatter(nbr_assoc, np.log(self.weights), marker="*", color='blue')
-        #
-        # plt.xlabel('time (s)')
-        # plt.ylabel('voltage (mV)')
-        # plt.title('About as simple as it gets, folks')
-        # plt.grid(True)
-        # plt.savefig("test.png")
-        # plt.clf()
-        # plt.cla()
-        #plt.show()
 
         if self.effective_sample_size() < 0.5*float(self.nbr_particles):
             self.multinomial_resample()
