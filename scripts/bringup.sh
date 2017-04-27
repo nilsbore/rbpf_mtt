@@ -14,10 +14,11 @@ tmux new-window -t $SESSION:0 -n 'roscore'
 #tmux new-window -t $SESSION:1 -n 'mongodb'
 #tmux new-window -t $SESSION:2 -n 'soma'
 tmux new-window -t $SESSION:1 -n 'rviz'
-tmux new-window -t $SESSION:2 -n 'simulation'
+tmux new-window -t $SESSION:2 -n 'track'
 tmux new-window -t $SESSION:3 -n 'axclient'
-tmux new-window -t $SESSION:4 -n 'cloud_loader'
-tmux new-window -t $SESSION:5 -n 'feature_vis'
+tmux new-window -t $SESSION:4 -n 'benchmark'
+tmux new-window -t $SESSION:5 -n 'annotate'
+tmux new-window -t $SESSION:6 -n 'feature_vis'
 
 tmux select-window -t $SESSION:0
 tmux send-keys "roscore" C-m
@@ -31,16 +32,19 @@ tmux send-keys "source $SOURCE_WS" C-m
 #tmux send-keys "roslaunch quasimodo_retrieval retrieval.launch vocabulary_path:=/home/nbore/Data/tsc_semantic_maps/vocabulary"
 tmux send-keys "roslaunch rbpf_mtt track.launch map:=${WS_PATH}/src/rbpf_mtt/maps/dynamic_map.yaml db_path:=${DB_PATH} number_targets:=7 data_path:=/media/nbore/data_ssd/processed_data/moving_chairs_semantic_map"
 
-
 tmux select-window -t $SESSION:3
 tmux send-keys "source $SOURCE_WS" C-m
 tmux send-keys "rosrun actionlib axclient.py /observation_db"
 
 tmux select-window -t $SESSION:4
 tmux send-keys "source $SOURCE_WS" C-m
-tmux send-keys "roslaunch rbpf_benchmark annotate.launch map:=${WS_PATH}/src/rbpf_mtt/maps/dynamic_map.yaml number_targets:=7 data_path:=/media/nbore/data_ssd/processed_data/moving_chairs_semantic_map"
+tmux send-keys "roslaunch rbpf_benchmark benchmark.launch number_targets:=7 data_path:=/media/nbore/data_ssd/processed_data/moving_chairs_semantic_map"
 
 tmux select-window -t $SESSION:5
+tmux send-keys "source $SOURCE_WS" C-m
+tmux send-keys "roslaunch rbpf_benchmark annotate.launch map:=${WS_PATH}/src/rbpf_mtt/maps/dynamic_map.yaml number_targets:=7 data_path:=/media/nbore/data_ssd/processed_data/moving_chairs_semantic_map"
+
+tmux select-window -t $SESSION:6
 tmux send-keys "source $SOURCE_WS" C-m
 tmux send-keys "rosrun rbpf_processing visualize_features.py"
 
