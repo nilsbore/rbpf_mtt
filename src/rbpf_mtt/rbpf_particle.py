@@ -91,7 +91,10 @@ class RBPFMParticle(object):
             pprop = 0. # can't have any local movement here!
 
         prior = np.zeros((2*nbr_observations+1))
+        #if pjump != 0.:
         prior_norm = (1. - pnone) / (pprop + pjump) / float(nbr_observations)
+        #else:
+        #    prior_norm = 1.
         prior[:nbr_observations] = pprop * prior_norm
         prior[nbr_observations:2*nbr_observations] = pjump * prior_norm
         prior[2*nbr_observations] = pnone
