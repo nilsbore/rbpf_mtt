@@ -64,7 +64,7 @@ class SmootherServer(object):
         self.poses_pub = rospy.Publisher('set_target_poses', PoseArray, queue_size=50)
         self.obs_pub = rospy.Publisher('sim_filter_measurements', ObjectMeasurement, queue_size=50)
         self.smooth_pub = rospy.Publisher('smoother_vis', Int32, queue_size=50)
-
+        self.done_pub = rospy.Publisher('playing_done', Empty, queue_size=50)
         self.labels_pub = rospy.Publisher('save_labels', Empty, queue_size=50)
 
         self.path_pubs = [rospy.Publisher('forward_detected_paths', String, queue_size=50),
@@ -142,6 +142,19 @@ class SmootherServer(object):
         self.iteration = 0
         self.is_playing = True
 
+    def do_replay(self):
+
+        self.is_playing = True
+        self.iteration = 0
+        SmootherServer._result.response = "Replaying observation sequence!"
+
+        try:
+            reset_filter = rospy.ServiceProxy('reset_filter', EmptySrv)
+            smooth_estimates()
+        except rospy.ServiceException, e:
+            SmootherServer._result.response = "Is reset filter server running?"
+            print "Service call failed: %s"%e
+
     def execute_callback(self, goal):
 
         SmootherServer._result.response = "Success!"
@@ -160,8 +173,7 @@ class SmootherServer(object):
         elif goal.action == 'load':
             self.do_load(goal.observations_file)
         elif goal.action == 'replay':
-            self.is_playing = True
-            self.iteration = 0
+            self.do_replay()
         elif goal.action == 'step':
             if not self.is_playing:
                 self.do_load(goal.observations_file)
@@ -208,6 +220,7 @@ class SmootherServer(object):
         if self.iteration >= len(self.timesteps):
             SmootherServer._result.response = "Done playing back, no more measurements!"
             self.is_through = True
+            self.done_pub.publish()
             #SmootherServer._result.success = False
             return
 

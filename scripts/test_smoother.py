@@ -38,11 +38,23 @@ class SmootherNode(object):
         self.qjump = rospy.get_param('~qjump', 0.025)
         self.qnone = rospy.get_param('~qnone', 0.25)
 
-        self.smoother = RBPFMTTSmoother(self.nbr_targets, self.number_particles, self.feature_dim, 20, self.spatial_std,
-                                        self.spatial_process_std, self.feature_std, self.pjump, self.pnone, self.qjump, self.qnone)
-        self.initialized = np.zeros((self.nbr_targets,), dtype=bool)
+        self.initialize_filter()
 
         self.service = rospy.Service('smooth_estimates', EmptySrv, self.smooth_callback)
+        self.reset_service = rospy.Service("reset_filter", EmptySrv, self.reset_callback)
+
+        rospy.Subscriber("filter_measurements", ObjectMeasurement, self.callback)
+        rospy.Subscriber("sim_filter_measurements", ObjectMeasurement, self.callback)
+        rospy.Subscriber("smoother_vis", Int32, self.vis_callback)
+
+
+    def initialize_filter(self):
+
+        self.smoother = None
+        self.smoother = RBPFMTTSmoother(self.nbr_targets, self.number_particles, self.feature_dim, 20, self.spatial_std,
+                                        self.spatial_process_std, self.feature_std, self.pjump, self.pnone, self.qjump, self.qnone)
+        self.initialized = None
+        self.initialized = np.zeros((self.nbr_targets,), dtype=bool)
 
         self.last_time = -1
         self.last_observation_id = -1
@@ -54,9 +66,11 @@ class SmootherNode(object):
         self.all_timesteps = []
         self.split_timesteps = [[]]
 
-        rospy.Subscriber("filter_measurements", ObjectMeasurement, self.callback)
-        rospy.Subscriber("sim_filter_measurements", ObjectMeasurement, self.callback)
-        rospy.Subscriber("smoother_vis", Int32, self.vis_callback)
+    def reset_callback(self, req):
+
+        self.initialize_filter()
+
+        return ()
 
     def measurements_from_pose(self, pose):
         measurement_dim = len(pose.feature)
@@ -130,7 +144,7 @@ class SmootherNode(object):
         is_init = np.all(self.initialized)
         spatial_measurement, feature_measurement, location_id = self.measurements_from_pose(pose)
 
-        if self.joint_spatial_measurement is None or (is_init and pose.timestep != self.last_time):
+        if (is_init and self.joint_spatial_measurement is None) or (is_init and pose.timestep != self.last_time):
             #self.last_time = pose.timestep
             #self.last_observation_id = pose.observation_id
             self.add_measurements()
@@ -142,6 +156,8 @@ class SmootherNode(object):
             self.locations_ids = [ location_id ]
             self.timesteps.append(pose.timestep)
             self.split_timesteps.append([ pose.timestep ])
+            e = Empty()
+            self.ready_pub.publish(e)
         elif is_init and pose.timestep != 0:
             self.joint_spatial_measurement = np.vstack((self.joint_spatial_measurement, spatial_measurement))
             self.joint_feature_measurement = np.vstack((self.joint_feature_measurement, feature_measurement))
@@ -166,7 +182,8 @@ class SmootherNode(object):
             if np.all(self.initialized):
                 self.par_visualize_marginals(self.smoother.filter)
                 self.publish_estimates(pose.timestep)
-
+                e = Empty()
+                self.ready_pub.publish(e)
         else:
             if not is_init:
                 print "All targets have not been initialized, not updating..."
@@ -176,8 +193,8 @@ class SmootherNode(object):
 
         # We should add an argument to only do this in some cases
         #self.par_visualize_marginals(self.smoother.filter)
-        e = Empty()
-        self.ready_pub.publish(e)
+        #e = Empty()
+        #self.ready_pub.publish(e)
 
     def par_visualize_marginals(self, rbpfilter):
 
