@@ -12,6 +12,8 @@ from visualization_msgs.msg import Marker, MarkerArray
 from std_msgs.msg import Empty, Int32
 from std_srvs.srv import Empty as EmptySrv
 import sys
+from dynamic_reconfigure.server import Server
+from rbpf_mtt.cfg import ParametersConfig
 #import tracemalloc
 
 class SmootherNode(object):
@@ -41,6 +43,8 @@ class SmootherNode(object):
 
         self.initialize_filter()
 
+        self.parameter_srv = Server(ParametersConfig, self.parameter_callback)
+
         self.service = rospy.Service('smooth_estimates', EmptySrv, self.smooth_callback)
         self.reset_service = rospy.Service("reset_filter", EmptySrv, self.reset_callback)
 
@@ -48,6 +52,17 @@ class SmootherNode(object):
         rospy.Subscriber("sim_filter_measurements", ObjectMeasurement, self.callback)
         rospy.Subscriber("smoother_vis", Int32, self.vis_callback)
 
+    def parameter_callback(self, config, level):
+        
+        self.pjump = config.pjump
+        self.qjump = config.pjump
+        self.pnone = config.pnone
+        self.qnone = config.pnone
+        self.number_particles = config.number_particles
+        self.spatial_std = config.spatial_std
+        self.spatial_process_std = config.spatial_process_std
+
+        return config
 
     def initialize_filter(self):
 
