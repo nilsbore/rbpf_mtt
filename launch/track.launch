@@ -19,6 +19,7 @@
     <arg name="feature_std" default="6.0"/>
     <arg name="discrim_factor" default="2.0"/>
     <arg name="is_init" default="true"/>
+    <arg name="color_clouds" default="true"/>
     <!-- <arg name="data_path" default="$(find rbpf_processing)/data"/> -->
 
     <arg name="pjump" default="0.003"/>
@@ -90,7 +91,9 @@
         <param name="number_noise" value="$(arg number_noise)"/>
     </node>
 
-    <include file="$(find rbpf_processing)/launch/cloud_observation_loader.launch"/>
+    <include file="$(find rbpf_processing)/launch/cloud_observation_loader.launch">
+        <arg name="color_clouds" value="$(arg color_clouds)"/>
+    </include>
 
     <!-- <node pkg="rbpf_mtt" type="test_filter.py" name="test_filter"/> -->
 
