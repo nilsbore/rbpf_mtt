@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 import multiprocessing as mp
 from functools import partial
 import sys
+#import pickle
 
 def par_update_particle(spatial_measurements, feature_measurements, time, observation_id, location_ids, p):
 
@@ -158,6 +159,10 @@ class RBPFMTTFilter(object):
         plt.savefig("samples.png")
         plt.clf()
         plt.cla()
+
+        #particlestring = pickle.dumps(self.particles)
+        #print "Number of particles: ", len(self.particles), " particle pickle length: ", len(particlestring)
+
 
     def initialize_target(self, target_id, spatial_measurement, feature_measurement, feature_covariance, location_id):
 

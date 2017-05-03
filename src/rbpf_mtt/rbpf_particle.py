@@ -45,7 +45,7 @@ class RBPFMParticle(object):
         self.location_ids = np.zeros((nbr_targets), dtype=int) # assigns targets to measurement sets
         self.might_have_jumped = np.zeros((nbr_targets), dtype=bool)
         self.last_time = -1
-        self.associations = {}
+        #self.associations = {}
         self.did_jump = False
         self.nbr_jumps = 0
         self.nbr_noise = 0
@@ -278,7 +278,7 @@ class RBPFMParticle(object):
                 self.fm[k] = pot_fm[k, i]
                 self.sP[k] = pot_sP[k, i]
                 self.fP[k] = pot_fP[k, i]
-                self.associations[observation_id] = i
+                #self.associations[observation_id] = i
                 self.nbr_assoc += 1
                 #weights_update *= 1.0#likelihoods[k, i]/pc[k, i]
 
