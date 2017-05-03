@@ -37,8 +37,6 @@ class RBPFMTTFilter(object):
         self.resampled = False
         self.time_since_resampling = 0
         self.effective_sample_sizes = []
-        
-        self.pool = mp.Pool(processes=4)
 
     def estimate(self):
 
@@ -133,13 +131,19 @@ class RBPFMTTFilter(object):
             self.resampled = False
 
         self.last_time = time
-        
+
         #weight_updates = np.zeros((self.nbr_particles,))
         #for i, p in enumerate(self.particles):
         #    weight_updates[i] = self.particles[i].update(spatial_measurements, feature_measurements, time, observation_id, location_ids)
 
         func = partial(par_update_particle, spatial_measurements, feature_measurements, time, observation_id, location_ids)
-        results = self.pool.map(func, self.particles)
+        try:
+            pool = mp.Pool(processes=4)
+            results = pool.map(func, self.particles)
+        finally:
+            pool.close()
+            pool.join()
+
         weight_updates, particle_updates = zip(*results)
         self.particles = list(particle_updates)
 
