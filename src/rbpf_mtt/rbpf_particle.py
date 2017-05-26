@@ -81,23 +81,74 @@ class RBPFMParticle(object):
 
     def compute_prior(self, j, pjump, pnone, location_ids, nbr_observations):
 
-        pprop = 1.0 - pjump # probability of local movement to this measurement
+        # Here we have two different prior values based on if the measurement location is the same as the sample location:
+        #
+        # (prop, meas)             (prop, no meas)         (jump, meas)       (jump, no meas)
+        # Same: [1-p_jump, p_jump] x [[1-p_none, p_none], [1/N_l, (N_l-1)/N_l]] 
+        # (1-p_none)*(1-p_jump)    p_none*(1-p_jump)       1/N_l*p_jump       (N_l-1)/N_l*p_jump
+        #
+        # Different: [1-p_jump, p_jump] x [[0, 1], [1/N_l, (N_l-1)/N_l]]
+        # 0                        (1-p_jump)              1/N_l*p_jump       (N_l-1)/N_l*p_jump
+        #
+        # Previously jumped, without observations: [1, 0] x [[1/N_l, (N_l-1)/N_l], [0, 0]]
+        # 1/N_l                    (N_l-1)/N_l             0                  0
 
-        if np.sum(location_ids == self.location_ids[j]) == 0: # no observations from target room
-            if self.might_have_jumped[j]:
-                pnone = 1. - pjump*(1. - pnone)*((1.-self.pjump)*(1. - self.pnone))/self.pnone # computed so that the jump probabilities stay the same!
-            else:
-                pnone = 1. - pjump*(1. - pnone) # computed so that the jump probabilities stay the same!
-            pprop = 0. # can't have any local movement here!
 
-        prior = np.zeros((2*nbr_observations+1))
-        #if pjump != 0.:
-        prior_norm = (1. - pnone) / (pprop + pjump) / float(nbr_observations)
-        #else:
-        #    prior_norm = 1.
-        prior[:nbr_observations] = pprop * prior_norm
-        prior[nbr_observations:2*nbr_observations] = pjump * prior_norm
-        prior[2*nbr_observations] = pnone
+
+        #pprop = 1.0 - pjump # probability of local movement to this measurement
+
+        #if np.sum(location_ids == self.location_ids[j]) == 0: # no observations from target room
+        #    if self.might_have_jumped[j]:
+        #        pnone = 1. - pjump*(1. - pnone)*((1.-self.pjump)*(1. - self.pnone))/self.pnone # computed so that the jump probabilities stay the same!
+        #    else:
+        #        pnone = 1. - pjump*(1. - pnone) # computed so that the jump probabilities stay the same!
+        #    pprop = 0. # can't have any local movement here!
+
+        #prior = np.zeros((2*nbr_observations+1))
+      
+        #prior_norm = (1. - pnone) / (pprop + pjump) / float(nbr_observations)
+  
+        #prior[:nbr_observations] = pprop * prior_norm
+        #prior[nbr_observations:2*nbr_observations] = pjump * prior_norm
+        #prior[2*nbr_observations] = pnone
+
+
+        pprop = 1. - pjump # probability of local movement to this measurement
+        pmeas = 1. - pnone
+        nbr_locations = 2.
+
+        # row: 1. same location, 2. other location 3. unknown
+        # col: 1. prop, meas, 2. jump, meas, 3. prop, no meas, 4. jump, no meas
+        #T = np.array([[pprop*pmeas, pjump*pmeas/nbr_locations, pprop*pnone, pjump*(nbr_locations-1.+pnone)/nbr_locations],
+        #              [0.,          pjump*pmeas/nbr_locations, pprop,       pjump*(nbr_locations-1.+pnone)/nbr_locations],
+        #              [0.,          pmeas/nbr_locations,       pnone/nbr_locations,     (nbr_locations-1.)/nbr_locations]])
+        T = np.array([[pprop*pmeas, pjump*pmeas, pprop*pnone, pjump*pnone],
+                      [0.,          pjump*pmeas, pprop+pjump*pnone,       0.],
+                      [0.,          pmeas, pnone, 0.]])
+        #T = np.array([[pprop*pmeas, pjump*pmeas, pprop*pnone, pjump*pnone],
+        #              [0.,          pjump*pmeas, pprop,       pjump*pnone],
+        #              [0.,          pprop*pmeas, pprop*pnone,       pjump]])
+
+
+        #print np.sum(T, axis=1)
+
+        if self.might_have_jumped[j]: # the object has jumped to an unknown location
+            mode = 2
+        elif np.sum(location_ids == self.location_ids[j]) == 0: # the estimate is in a different location
+            mode = 1
+        else: # the estimate is in the same location as the measurement
+            mode = 0
+
+        #print mode
+        prior = np.zeros((2*nbr_observations+2,))
+        #print 2
+        prior[:nbr_observations] = T[mode, 0]/float(nbr_observations)
+        #print 3
+        prior[nbr_observations:2*nbr_observations] = T[mode, 1]/float(nbr_observations)
+        #print 4
+        prior[2*nbr_observations] = T[mode, 2]
+        #print 5
+        prior[2*nbr_observations+1] = T[mode, 3]
 
         return prior
 
@@ -114,8 +165,8 @@ class RBPFMParticle(object):
         pot_fm = np.zeros((nbr_targets, nbr_observations, feature_dim))
         pot_sP = np.zeros((nbr_targets, nbr_observations, spatial_dim, spatial_dim)) # the Kalman filter covariances
         pot_fP = np.zeros((nbr_targets, nbr_observations, feature_dim, feature_dim))
-        likelihoods = np.zeros((nbr_targets, 2*nbr_observations+1))
-        prop_ratios = np.zeros((nbr_targets, 2*nbr_observations+1))
+        likelihoods = np.zeros((nbr_targets, 2*nbr_observations+2))
+        prop_ratios = np.zeros((nbr_targets, 2*nbr_observations+2))
         weights = np.zeros((nbr_targets,))
         #pc = np.zeros((nbr_targets, 2*nbr_observations+1))
 
@@ -130,7 +181,7 @@ class RBPFMParticle(object):
             prior = self.compute_prior(k, self.pjump, self.pnone, location_ids, nbr_observations)
             prop_prior = self.compute_prior(k,self.qjump, self.qnone, location_ids, nbr_observations)
 
-            likelihood = np.zeros((2*nbr_observations+1))
+            likelihood = np.zeros((2*nbr_observations+2,))
 
             sS = self.sP[k] + sR # IS = (R + H*P*H');
             fS = self.fP[k] + fR
@@ -159,12 +210,14 @@ class RBPFMParticle(object):
             #weights[k] = np.sum(likelihoods[k])
             #likelihoods[k] = 1./weights[k]*likelihoods[k]
 
-            spatial_expected_likelihood = gauss_expected_likelihood(self.sm[k], sS)
-            feature_expected_likelihood = gauss_expected_likelihood(self.fm[k], fS)
+            #spatial_expected_likelihood = gauss_expected_likelihood(self.sm[k], sS)
+            #feature_expected_likelihood = gauss_expected_likelihood(self.fm[k], fS)
+            spatial_expected_likelihood = gauss_expected_likelihood(self.sm[k], self.sP[k] + sR)
+            feature_expected_likelihood = gauss_expected_likelihood(self.fm[k], self.fP[k] + fR)
 
             likelihood[:nbr_observations] = spatial_likelihoods[k, :]*feature_likelihoods[k, :]
             likelihood[nbr_observations:2*nbr_observations] = spatial_expected_likelihood*feature_likelihoods[k, :]
-            likelihood[2*nbr_observations] = spatial_expected_likelihood*feature_expected_likelihood
+            likelihood[2*nbr_observations:2*nbr_observations+2] = spatial_expected_likelihood*feature_expected_likelihood
             prop_proposal = prop_prior*likelihood
             proposal = prior*likelihood
 
@@ -195,7 +248,7 @@ class RBPFMParticle(object):
             nbr_no_meas = 0
             for j in range(0, nbr_targets):
                 # the problem here is that it does not take the other probabilites into account
-                states[j] = np.random.choice(2*nbr_observations+1, p=likelihoods[j])
+                states[j] = np.random.choice(2*nbr_observations+2, p=likelihoods[j])
                 if states[j] < 2*nbr_observations:
                     sampled_states[j] = states[j] % nbr_observations
                 else:
@@ -214,13 +267,22 @@ class RBPFMParticle(object):
         for j in range(0, nbr_targets):
 
             # observation from target room but associated with noise
-            if np.sum(location_ids == self.location_ids[j]) > 0 and sampled_states[j] == -1:
+            if states[j] == 2*nbr_observations+1: # np.sum(location_ids == self.location_ids[j]) > 0 and sampled_states[j] == -1:
                 self.might_have_jumped[j] = True
+            elif states[j] == 2*nbr_observations:
+                if not self.might_have_jumped[j] and np.sum(location_ids == self.location_ids[j]) == 0:
+                    pass #self.might_have_jumped[j] = False
+                    #self.location_ids[j] = location_ids[sampled_states[j]]
+                else:
+                    self.might_have_jumped[j] = False
+                    self.location_ids[j] = location_ids[0]
+            elif states[j] < 2*nbr_observations:
+                self.might_have_jumped[j] = False
+                self.location_ids[j] = location_ids[sampled_states[j]]
 
             self.c.append(sampled_states[j])
-            if sampled_states[j] > 0:
-                self.might_have_jumped[j] = False # associated with target or jump
-                self.location_ids[j] = location_ids[sampled_states[j]]
+            #if sampled_states[j] > 0:
+            #    self.might_have_jumped[j] = False # associated with target or jump
             #self.last_c[j] = sampled_states[j]
 
         return states
