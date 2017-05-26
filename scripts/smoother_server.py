@@ -27,6 +27,9 @@ class SmootherServer(object):
         self.step_by_timestep = rospy.get_param('~step_by_timestep', True)
         self.is_init = rospy.get_param('~is_init', True)
         self.data_path = rospy.get_param('~data_path', "")
+        filter_location_clouds_string = rospy.get_param('~filter_location_clouds', "")
+        self.filter_location_clouds = [int(i) for i in filter_location_clouds_string.split()]
+
 
         max_iterations = 1000
 
@@ -294,8 +297,9 @@ class SmootherServer(object):
            (not self.is_init and len(self.cloud_paths) > 0):
             self.poses_pub.publish(init_poses)
 
-        for i, paths in enumerate(clouds_paths):
-            self.path_pubs[i].publish(paths)
+        if len(self.filter_location_clouds) == 0 or self.location_ids[self.iteration] in self.filter_location_clouds:
+            for i, paths in enumerate(clouds_paths):
+                self.path_pubs[i].publish(paths)
 
 
     def save_observation_sequence(self, observations_file):
