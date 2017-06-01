@@ -22,10 +22,11 @@
     <arg name="color_clouds" default="true"/>
     <!-- <arg name="data_path" default="$(find rbpf_processing)/data"/> -->
 
-    <arg name="pjump" default="0.003"/>
-    <arg name="qjump" default="0.003"/>
-    <arg name="pnone" default="0.01"/>
-    <arg name="qnone" default="0.01"/>
+    <arg name="pjump" default="0.05"/>
+    <arg name="qjump" default="0.05"/>
+    <arg name="pnone" default="0.02"/>
+    <arg name="qnone" default="0.02"/>
+    <arg name="number_locations" default="2"/>
 
     <arg name="filter_maps" default=""/>
 
@@ -59,6 +60,7 @@
         <param name="pnone" value="$(arg pnone)"/>
         <param name="qjump" value="$(arg qjump)"/>
         <param name="qnone" value="$(arg qnone)"/>
+        <param name="number_locations" value="$(arg number_locations)"/>
     </node>
     <node pkg="rbpf_mtt" type="smoother_server.py" name="smoother_server" output="screen" respawn="true" unless="$(arg test)">
         <param name="data_path" value="$(arg data_path)"/>

@@ -28,9 +28,10 @@ def gauss_expected_likelihood(m, P):
 # this is in principle just a Kalman filter over all the states
 class RBPFMParticle(object):
 
-    def __init__(self, spatial_dim, feature_dim, nbr_targets, spatial_std, spatial_process_std,
+    def __init__(self, spatial_dim, feature_dim, nbr_targets, nbr_locations, spatial_std, spatial_process_std,
                  feature_std, pjump=0.025, pnone=0.25, qjump=0.025, qnone=0.25):
 
+        self.nbr_locations = nbr_locations
         self.spatial_std = spatial_std
         self.spatial_process_std = spatial_process_std
         self.feature_std = feature_std
@@ -83,8 +84,7 @@ class RBPFMParticle(object):
 
         pprop = 1. - pjump # probability of local movement to this measurement
         pmeas = 1. - pnone
-        nbr_locations = 2.
-        pthis = 1./nbr_locations
+        pthis = 1./self.nbr_locations
         pother = 1. - pthis
 
         # 1. measure current room 2. measure jump current room 3. propagate no meas 4. jump no meas current room 5. jump to other room, no meas

@@ -29,6 +29,7 @@ class SmootherNode(object):
         self.feature_estimates_pub = rospy.Publisher('feature_estimates', GMMPoses, queue_size=50)
 
         self.nbr_targets = rospy.get_param('~number_targets', 2)
+        self.nbr_locations = rospy.get_param('~number_locations', 2)
         self.publish_maps = rospy.get_param('~publish_maps', True)
         self.spatial_std = rospy.get_param('~spatial_std', 0.63)
         self.spatial_process_std = rospy.get_param('~spatial_process_std', 0.25)
@@ -53,7 +54,9 @@ class SmootherNode(object):
         rospy.Subscriber("smoother_vis", Int32, self.vis_callback)
 
     def parameter_callback(self, config, level):
-        
+
+        print "Trying to set config: ", config
+
         self.pjump = config.pjump
         self.qjump = config.pjump
         self.pnone = config.pnone
@@ -67,7 +70,7 @@ class SmootherNode(object):
     def initialize_filter(self):
 
         self.smoother = None
-        self.smoother = RBPFMTTSmoother(self.nbr_targets, self.number_particles, self.feature_dim, 20, self.spatial_std,
+        self.smoother = RBPFMTTSmoother(self.nbr_targets, self.nbr_locations, self.number_particles, self.feature_dim, 20, self.spatial_std,
                                         self.spatial_process_std, self.feature_std, self.pjump, self.pnone, self.qjump, self.qnone)
         self.initialized = None
         self.initialized = np.zeros((self.nbr_targets,), dtype=bool)
