@@ -42,16 +42,10 @@ class RBPFMParticle(object):
         self.fm = np.zeros((nbr_targets, feature_dim))
         self.sP = np.zeros((nbr_targets, spatial_dim, spatial_dim)) # the Kalman filter covariances
         self.fP = np.zeros((nbr_targets, feature_dim, feature_dim))
-        self.measurement_partitions = np.zeros((nbr_targets), dtype=int) # assigns targets to measurement sets
+        #self.measurement_partitions = np.zeros((nbr_targets), dtype=int) # assigns targets to measurement sets
         self.location_ids = np.zeros((nbr_targets), dtype=int) # assigns targets to measurement sets
         self.might_have_jumped = np.zeros((nbr_targets), dtype=bool)
         self.last_time = -1
-        #self.associations = {}
-        self.did_jump = False
-        self.nbr_jumps = 0
-        self.nbr_noise = 0
-        self.nbr_assoc = 0
-        self.target_jumps = np.zeros((nbr_targets,))
 
         self.pjump = pjump
         self.pnone = pnone
@@ -59,13 +53,18 @@ class RBPFMParticle(object):
         self.qjump = qjump
         self.qnone = qnone
 
-        #self.current_
-        # the way this is supposed to work is that, when we sample a new c, we can only do it within one set
+        # Debug: these properties are for inspection and non-essential to the algorithm
+        self.did_jump = False
+        self.nbr_jumps = 0
+        self.nbr_noise = 0
+        self.nbr_assoc = 0
+        self.target_jumps = np.zeros((nbr_targets,))
+
 
     def set_feature_cov(self, feature_cov):
         self.fR = feature_cov
 
-    def predict(self, location_ids, measurement_partition=None):
+    def predict(self, location_ids):
 
         spatial_process_std = self.spatial_process_std #0.25
         feature_process_std = 0.0 #1#1
@@ -171,7 +170,11 @@ class RBPFMParticle(object):
 
             #spatial_expected_likelihood = gauss_expected_likelihood(self.sm[k], sS)
             #feature_expected_likelihood = gauss_expected_likelihood(self.fm[k], fS)
-            spatial_expected_likelihood = gauss_expected_likelihood(self.sm[k], sS+sQ)
+            #if np.sum(location_ids == self.location_ids[k]) == 0: # the estimate is in a different location
+            #    spatial_expected_likelihood = gauss_expected_likelihood(self.sm[k], 10.*(sS+sQ))
+            #else:
+            #    spatial_expected_likelihood = gauss_expected_likelihood(self.sm[k], 10.*sS)
+            spatial_expected_likelihood = gauss_expected_likelihood(self.sm[k], 10.*sS)
             feature_expected_likelihood = gauss_expected_likelihood(self.fm[k], fS)
 
             likelihood[:nbr_observations] = spatial_likelihoods[k, :]*feature_likelihoods[k, :]
