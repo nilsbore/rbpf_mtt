@@ -129,19 +129,16 @@ class RBPFMParticle(object):
         prop_ratios = np.zeros((nbr_targets, 2*nbr_observations+3))
         weights = np.zeros((nbr_targets,))
         #pc = np.zeros((nbr_targets, 2*nbr_observations+1))
+        
+        self.predict(location_ids)
 
         spatial_likelihoods = np.zeros((nbr_targets, nbr_observations))
         feature_likelihoods = np.zeros((nbr_targets, nbr_observations))
-
-        self.predict(location_ids)
+        spatial_expected_likelihoods = np.zeros((nbr_targets,))
+        feature_expected_likelihoods = np.zeros((nbr_targets,))
 
         # compute the likelihoods for all the observations and targets
         for k in range(0, nbr_targets):
-
-            prior = self.compute_prior(k, self.pjump, self.pnone, location_ids, nbr_observations)
-            prop_prior = self.compute_prior(k,self.qjump, self.qnone, location_ids, nbr_observations)
-
-            likelihood = np.zeros((2*nbr_observations+3,))
 
             sS = self.sP[k] + sR # IS = (R + H*P*H');
             fS = self.fP[k] + fR
@@ -163,6 +160,22 @@ class RBPFMParticle(object):
                 # TODO: wait 1s, didn't they write that this should be pot_sm[j]?
                 spatial_likelihoods[k, j] = gauss_pdf(spatial_measurements[j], self.sm[k], sS)
                 feature_likelihoods[k, j] = gauss_pdf(feature_measurements[j], self.fm[k], fS)
+        
+            spatial_expected_likelihoods[k] = gauss_expected_likelihood(self.sm[k], sS)
+            feature_expected_likelihoods[k] = gauss_expected_likelihood(self.fm[k], fS)
+
+        negative_likelihoods = np.zeros((nbr_targets,))
+        for k in range(0, nbr_targets):
+
+            negative_likelihoods[k] = np.mean(spatial_likelihoods[:, :nbr_observations]*feature_likelihoods[:, :nbr_observations]) - \
+                                        1./float(nbr_targets)*np.mean(spatial_likelihoods[k, :nbr_observations]*feature_likelihoods[k, :nbr_observations])
+
+        for k in range(0, nbr_targets):
+            
+            prior = self.compute_prior(k, self.pjump, self.pnone, location_ids, nbr_observations)
+            prop_prior = self.compute_prior(k,self.qjump, self.qnone, location_ids, nbr_observations)
+            
+            likelihood = np.zeros((2*nbr_observations+3,))
 
             #likelihoods[k, :nbr_observations] = spatial_likelihoods[k, :]*feature_likelihoods[k, :]
             #likelihoods[k, nbr_observations:2*nbr_observations] = pjump*feature_likelihoods[k, :]
@@ -176,15 +189,13 @@ class RBPFMParticle(object):
             #    spatial_expected_likelihood = gauss_expected_likelihood(self.sm[k], 10.*(sS+sQ))
             #else:
             #    spatial_expected_likelihood = gauss_expected_likelihood(self.sm[k], 10.*sS)
-            spatial_expected_likelihood = gauss_expected_likelihood(self.sm[k], sS)
-            feature_expected_likelihood = gauss_expected_likelihood(self.fm[k], fS)
             location_spatial_density = 1./20.
             feature_density = 0.001
 
             likelihood[:nbr_observations] = spatial_likelihoods[k, :]*feature_likelihoods[k, :]
             likelihood[nbr_observations:2*nbr_observations] = location_spatial_density*feature_likelihoods[k, :]
             mean_likelihood = np.mean(prior[:2*nbr_observations]*likelihood[:2*nbr_observations])/np.sum(prior[:2*nbr_observations])
-            likelihood[2*nbr_observations:] = spatial_expected_likelihood*feature_expected_likelihood 
+            likelihood[2*nbr_observations:] = 0.1*spatial_expected_likelihoods[k]*feature_expected_likelihoods[k]
             prop_proposal = prop_prior*likelihood
             proposal = prior*likelihood
 
@@ -199,7 +210,7 @@ class RBPFMParticle(object):
             prop_ratios[k] = proposal / prop_proposal
 
             self.max_likelihoods[k] = np.max(spatial_likelihoods[k, :]*feature_likelihoods[k, :])
-            self.max_exp_likelihoods[k] = mean_likelihood # spatial_expected_likelihood
+            self.max_exp_likelihoods[k] = negative_likelihoods[k] # spatial_expected_likelihood
 
         return likelihoods, weights, prop_ratios, pot_sm, pot_fm, pot_sP, pot_fP
 
