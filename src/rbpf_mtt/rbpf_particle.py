@@ -61,6 +61,7 @@ class RBPFMParticle(object):
         self.target_jumps = np.zeros((nbr_targets,))
         self.max_likelihoods = np.zeros((nbr_targets,))
         self.max_exp_likelihoods = np.zeros((nbr_targets,))
+        self.sampled_modes = np.zeros((5,))
 
     def set_feature_cov(self, feature_cov):
         self.fR = feature_cov
@@ -182,7 +183,8 @@ class RBPFMParticle(object):
 
             likelihood[:nbr_observations] = spatial_likelihoods[k, :]*feature_likelihoods[k, :]
             likelihood[nbr_observations:2*nbr_observations] = location_spatial_density*feature_likelihoods[k, :]
-            likelihood[2*nbr_observations:] = 0.1*spatial_expected_likelihood*feature_expected_likelihood
+            mean_likelihood = np.mean(prior[:2*nbr_observations]*likelihood[:2*nbr_observations])/np.sum(prior[:2*nbr_observations])
+            likelihood[2*nbr_observations:] = spatial_expected_likelihood*feature_expected_likelihood 
             prop_proposal = prop_prior*likelihood
             proposal = prior*likelihood
 
@@ -196,8 +198,8 @@ class RBPFMParticle(object):
             prop_proposal[prop_proposal == 0] = 1.
             prop_ratios[k] = proposal / prop_proposal
 
-            self.max_likelihoods[k] = np.max(spatial_likelihoods[k, :])
-            self.max_exp_likelihoods[k] = spatial_expected_likelihood
+            self.max_likelihoods[k] = np.max(spatial_likelihoods[k, :]*feature_likelihoods[k, :])
+            self.max_exp_likelihoods[k] = mean_likelihood # spatial_expected_likelihood
 
         return likelihoods, weights, prop_ratios, pot_sm, pot_fm, pot_sP, pot_fP
 
@@ -287,12 +289,15 @@ class RBPFMParticle(object):
             self.did_jump = False
             if i == 2*nbr_observations+2:
                 self.nbr_noise += 1
+                self.sampled_modes[4] += 1
             elif i == 2*nbr_observations+1:
                 self.nbr_noise += 1
                 self.nbr_jumps += 1
                 self.did_jump = True
+                self.sampled_modes[3] += 1
             elif i == 2*nbr_observations:
                 self.nbr_noise += 1
+                self.sampled_modes[2] += 1
             elif i >= nbr_observations:
                 self.sm[k] = spatial_measurements[i % nbr_observations]
                 self.sP[k] = spatial_var*np.eye(spatial_dim)
@@ -300,6 +305,7 @@ class RBPFMParticle(object):
                 self.nbr_jumps += 1
                 self.target_jumps[k] += 1
                 #weights_update *= 0.2
+                self.sampled_modes[1] += 1
             else:
                 self.sm[k] = pot_sm[k, i]
                 self.fm[k] = pot_fm[k, i]
@@ -308,5 +314,6 @@ class RBPFMParticle(object):
                 #self.associations[observation_id] = i
                 self.nbr_assoc += 1
                 #weights_update *= 1.0#likelihoods[k, i]/pc[k, i]
+                self.sampled_modes[0] += 1
 
         return weight_update

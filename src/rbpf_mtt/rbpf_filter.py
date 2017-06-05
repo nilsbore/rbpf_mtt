@@ -168,10 +168,17 @@ class RBPFMTTFilter(object):
         #particlestring = pickle.dumps(self.particles)
         #print "Number of particles: ", len(self.particles), " particle pickle length: ", len(particlestring)
         
+        sampled_modes = np.zeros((5,))
         for p in self.particles:
             for j in range(0, self.nbr_targets):
                 if np.sum(location_ids == p.location_ids[j]) > 0:
                     print "Target ", j, " max likelihood: ", p.max_likelihoods[j], ", max exp likelihood: ", p.max_exp_likelihoods[j]
+            sampled_modes += p.sampled_modes
+
+        print "1. measure current room 2. measure jump current room 3. propagate no meas 4. jump no meas current room 5. jump to other room, no meas"
+        print sampled_modes/float(len(self.particles))
+
+
 
 
     def initialize_target(self, target_id, spatial_measurement, feature_measurement, feature_covariance, location_id):
