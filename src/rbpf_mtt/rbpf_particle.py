@@ -59,7 +59,8 @@ class RBPFMParticle(object):
         self.nbr_noise = 0
         self.nbr_assoc = 0
         self.target_jumps = np.zeros((nbr_targets,))
-
+        self.max_likelihoods = np.zeros((nbr_targets,))
+        self.max_exp_likelihoods = np.zeros((nbr_targets,))
 
     def set_feature_cov(self, feature_cov):
         self.fR = feature_cov
@@ -174,12 +175,14 @@ class RBPFMParticle(object):
             #    spatial_expected_likelihood = gauss_expected_likelihood(self.sm[k], 10.*(sS+sQ))
             #else:
             #    spatial_expected_likelihood = gauss_expected_likelihood(self.sm[k], 10.*sS)
-            spatial_expected_likelihood = gauss_expected_likelihood(self.sm[k], 10.*sS)
+            spatial_expected_likelihood = gauss_expected_likelihood(self.sm[k], sS)
             feature_expected_likelihood = gauss_expected_likelihood(self.fm[k], fS)
+            location_spatial_density = 1./20.
+            feature_density = 0.001
 
             likelihood[:nbr_observations] = spatial_likelihoods[k, :]*feature_likelihoods[k, :]
-            likelihood[nbr_observations:2*nbr_observations] = spatial_expected_likelihood*feature_likelihoods[k, :]
-            likelihood[2*nbr_observations:] = spatial_expected_likelihood*feature_expected_likelihood
+            likelihood[nbr_observations:2*nbr_observations] = location_spatial_density*feature_likelihoods[k, :]
+            likelihood[2*nbr_observations:] = 0.1*spatial_expected_likelihood*feature_expected_likelihood
             prop_proposal = prop_prior*likelihood
             proposal = prior*likelihood
 
@@ -192,6 +195,9 @@ class RBPFMParticle(object):
 
             prop_proposal[prop_proposal == 0] = 1.
             prop_ratios[k] = proposal / prop_proposal
+
+            self.max_likelihoods[k] = np.max(spatial_likelihoods[k, :])
+            self.max_exp_likelihoods[k] = spatial_expected_likelihood
 
         return likelihoods, weights, prop_ratios, pot_sm, pot_fm, pot_sP, pot_fP
 

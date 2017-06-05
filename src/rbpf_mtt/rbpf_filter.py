@@ -167,6 +167,11 @@ class RBPFMTTFilter(object):
 
         #particlestring = pickle.dumps(self.particles)
         #print "Number of particles: ", len(self.particles), " particle pickle length: ", len(particlestring)
+        
+        for p in self.particles:
+            for j in range(0, self.nbr_targets):
+                if np.sum(location_ids == p.location_ids[j]) > 0:
+                    print "Target ", j, " max likelihood: ", p.max_likelihoods[j], ", max exp likelihood: ", p.max_exp_likelihoods[j]
 
 
     def initialize_target(self, target_id, spatial_measurement, feature_measurement, feature_covariance, location_id):
