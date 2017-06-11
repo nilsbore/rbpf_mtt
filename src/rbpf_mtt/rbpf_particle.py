@@ -167,8 +167,8 @@ class RBPFMParticle(object):
         negative_likelihoods = np.zeros((nbr_targets,))
         for k in range(0, nbr_targets):
 
-            negative_likelihoods[k] = np.mean(spatial_likelihoods[:, :nbr_observations]*feature_likelihoods[:, :nbr_observations]) - \
-                                        1./float(nbr_targets)*np.mean(spatial_likelihoods[k, :nbr_observations]*feature_likelihoods[k, :nbr_observations])
+            negative_likelihoods[k] = np.mean((spatial_likelihoods[:, :nbr_observations]+1./20.)*feature_likelihoods[:, :nbr_observations]) - \
+                                        1./float(nbr_targets)*np.mean((spatial_likelihoods[k, :nbr_observations]+1./20.)*feature_likelihoods[k, :nbr_observations])
 
         for k in range(0, nbr_targets):
             
@@ -195,7 +195,7 @@ class RBPFMParticle(object):
             likelihood[:nbr_observations] = spatial_likelihoods[k, :]*feature_likelihoods[k, :]
             likelihood[nbr_observations:2*nbr_observations] = location_spatial_density*feature_likelihoods[k, :]
             mean_likelihood = np.mean(prior[:2*nbr_observations]*likelihood[:2*nbr_observations])/np.sum(prior[:2*nbr_observations])
-            likelihood[2*nbr_observations:] = 0.1*spatial_expected_likelihoods[k]*feature_expected_likelihoods[k]
+            likelihood[2*nbr_observations:] = 1./float(nbr_targets)*spatial_expected_likelihoods[k]*feature_expected_likelihoods[k]
             prop_proposal = prop_prior*likelihood
             proposal = prior*likelihood
 
@@ -260,6 +260,72 @@ class RBPFMParticle(object):
             #    self.location_ids[j] = location_ids[0]
 
         return states
+    
+    def gibbs_sample_update(self, nbr_observations, likelihoods, weights, location_ids):
+
+        nbr_targets = self.sm.shape[0]
+        spatial_dim = self.sm.shape[1]
+        feature_dim = self.fm.shape[1]
+        
+        states = np.zeros((nbr_targets,), dtype=int)
+        while True:
+            for j in range(0, nbr_targets):
+                states[j] = np.random.choice(2*nbr_observations+3, 1, p=likelihoods[j])
+            b = states[states < 2*nbr_observations]
+            if len(np.unique(np.mod(b, nbr_observations))) == len(b):
+                break
+        
+        for n in range(0, 1000):
+            inds = np.random.choice(nbr_targets, 2, replace=False)
+            nbr_assigned = np.sum(states < 2*nbr_observations)
+            marginals1 = np.array(weights[0]*likelihoods[inds[0]])
+            marginals2 = np.array(weights[1]*likelihoods[inds[1]])
+            # find all inds where a < nbr_observations and != inds[1] or inds[0]
+            for j, v in enumerate(states.tolist()):
+                if j != inds[0] and j != inds[1] and v < 2*nbr_observations:
+                    marginals1[v%nbr_observations+nbr_observations] = 0.
+                    marginals2[v%nbr_observations+nbr_observations] = 0.
+                    marginals1[v%nbr_observations] = 0.
+                    marginals2[v%nbr_observations] = 0.
+            if nbr_observations > nbr_assigned:
+                marginals1[:2*nbr_observations] *= float(nbr_observations)/float(nbr_observations-nbr_assigned)
+                marginals2[:2*nbr_observations] *= float(nbr_observations)/float(nbr_observations-nbr_assigned)
+
+            marginals1 *= 1./np.sum(marginals1)
+            marginals2 *= 1./np.sum(marginals2) 
+            joint_pair = np.kron(marginals1, marginals2)
+            inds1 = np.kron(np.arange(0, 2*nbr_observations+3), np.ones((2*nbr_observations+3,)))
+            inds2 = np.kron(np.ones((2*nbr_observations+3,)), np.arange(0, 2*nbr_observations+3))
+            zinds = np.logical_and(np.logical_and(np.mod(inds1, nbr_observations) == np.mod(inds2, nbr_observations),
+                                   inds1 < 2*nbr_observations), inds2 < 2*nbr_observations)
+            joint_pair[zinds] = 0
+            joint_pair *= 1./np.sum(joint_pair)
+            state_pair = np.random.choice((2*nbr_observations+3)**2, 1, p=joint_pair)
+            state1 = inds1[state_pair]
+            state2 = inds2[state_pair]
+
+            states[inds[0]] = state1
+            states[inds[1]] = state2
+
+        sampled_states = np.zeros((nbr_targets,), dtype=int)
+        sampled_states[states < 2*nbr_observations] = np.mod(states[states < 2*nbr_observations], nbr_observations)
+        sampled_states[states >= 2*nbr_observations] = -1
+
+        for j in range(0, nbr_targets):
+
+            self.c.append(sampled_states[j])
+            #self.might_have_jumped[j] = False # associated with target or jump
+            if states[j] == 2*nbr_observations+2:
+                self.might_have_jumped[j] = True
+            elif self.might_have_jumped[j]:
+                self.might_have_jumped[j] = False
+                self.location_ids[j] = location_ids[0]
+            elif sampled_states[j] > 0:
+                self.location_ids[j] = location_ids[sampled_states[j]]
+            #else:
+            #    self.location_ids[j] = location_ids[0]
+
+        return states
 
     # this functions takes in several measurements at the same timestep
     # and does association jointly, leading to fewer particles with low weights
@@ -273,8 +339,6 @@ class RBPFMParticle(object):
             self.last_time = time
 
         #print "Got measurement with observations: ", spatial_measurements.shape[0]
-
-
 
         spatial_var = self.spatial_std*self.spatial_std
         feature_var = self.feature_std*self.feature_std
@@ -291,6 +355,7 @@ class RBPFMParticle(object):
             self.target_compute_update(spatial_measurements, feature_measurements, sR, fR, location_ids)
 
         states = self.target_sample_update(nbr_observations, likelihoods, location_ids)
+        #states = self.gibbs_sample_update(nbr_observations, likelihoods, weights, location_ids)
 
         weight_update = np.prod(weights)
 
