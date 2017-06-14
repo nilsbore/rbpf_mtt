@@ -49,7 +49,7 @@ class RBPFMParticle(object):
         self.sP = np.zeros((nbr_targets, spatial_dim, spatial_dim)) # the Kalman filter covariances
         self.fP = np.zeros((nbr_targets, feature_dim, feature_dim))
         self.location_ids = np.zeros((nbr_targets), dtype=int) # assigns targets to measurement sets
-        self.might_have_jumped = np.zeros((nbr_targets), dtype=bool)
+        self.location_unknown = np.zeros((nbr_targets), dtype=bool)
         self.last_time = -1
 
         # Debug: these properties are for inspection and non-essential to the algorithm
@@ -94,7 +94,7 @@ class RBPFMParticle(object):
 
         #print np.sum(T, axis=1)
 
-        if self.might_have_jumped[j]: # the object has jumped to an unknown location
+        if self.location_unknown[j]: # the object has jumped to an unknown location
             mode = 2
         elif np.sum(location_ids == self.location_ids[j]) == 0: # the estimate is in a different location
             mode = 1
@@ -217,11 +217,11 @@ class RBPFMParticle(object):
         for j in range(0, nbr_targets):
 
             self.c.append(sampled_states[j])
-            #self.might_have_jumped[j] = False # associated with target or jump
+            #self.location_unknown[j] = False # associated with target or jump
             if states[j] == 2*nbr_observations+2:
-                self.might_have_jumped[j] = True
-            elif self.might_have_jumped[j]:
-                self.might_have_jumped[j] = False
+                self.location_unknown[j] = True
+            elif self.location_unknown[j]:
+                self.location_unknown[j] = False
                 self.location_ids[j] = location_ids[0]
             elif sampled_states[j] > 0:
                 self.location_ids[j] = location_ids[sampled_states[j]]
@@ -283,11 +283,11 @@ class RBPFMParticle(object):
         for j in range(0, nbr_targets):
 
             self.c.append(sampled_states[j])
-            #self.might_have_jumped[j] = False # associated with target or jump
+            #self.location_unknown[j] = False # associated with target or jump
             if states[j] == 2*nbr_observations+2:
-                self.might_have_jumped[j] = True
-            elif self.might_have_jumped[j]:
-                self.might_have_jumped[j] = False
+                self.location_unknown[j] = True
+            elif self.location_unknown[j]:
+                self.location_unknown[j] = False
                 self.location_ids[j] = location_ids[0]
             elif sampled_states[j] > 0:
                 self.location_ids[j] = location_ids[sampled_states[j]]
