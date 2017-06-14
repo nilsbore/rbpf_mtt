@@ -126,7 +126,6 @@ class RBPFMParticle(object):
         pot_sP = np.zeros((nbr_targets, nbr_observations, spatial_dim, spatial_dim)) # the Kalman filter covariances
         pot_fP = np.zeros((nbr_targets, nbr_observations, feature_dim, feature_dim))
         likelihoods = np.zeros((nbr_targets, 2*nbr_observations+3))
-        prop_ratios = np.zeros((nbr_targets, 2*nbr_observations+3))
         weights = np.zeros((nbr_targets,))
         #pc = np.zeros((nbr_targets, 2*nbr_observations+1))
         
@@ -173,7 +172,6 @@ class RBPFMParticle(object):
         for k in range(0, nbr_targets):
             
             prior = self.compute_prior(k, self.pjump, self.pnone, location_ids, nbr_observations)
-            prop_prior = self.compute_prior(k,self.qjump, self.qnone, location_ids, nbr_observations)
             
             likelihood = np.zeros((2*nbr_observations+3,))
 
@@ -196,23 +194,18 @@ class RBPFMParticle(object):
             likelihood[nbr_observations:2*nbr_observations] = location_spatial_density*feature_likelihoods[k, :]
             mean_likelihood = np.mean(prior[:2*nbr_observations]*likelihood[:2*nbr_observations])/np.sum(prior[:2*nbr_observations])
             likelihood[2*nbr_observations:] = 1./float(nbr_targets)*spatial_expected_likelihoods[k]*feature_expected_likelihoods[k]
-            prop_proposal = prop_prior*likelihood
+            
             proposal = prior*likelihood
 
-            weight = np.sum(proposal)
-            prop_proposal *= 1./np.sum(prop_proposal)
-            proposal *= 1./weight
+            weights[k] = np.sum(proposal)
+            proposal *= 1./weights[k]
 
-            weights[k] = weight
-            likelihoods[k] = prop_proposal
-
-            prop_proposal[prop_proposal == 0] = 1.
-            prop_ratios[k] = proposal / prop_proposal
+            likelihoods[k] = proposal
 
             self.max_likelihoods[k] = np.max(spatial_likelihoods[k, :]*feature_likelihoods[k, :])
             self.max_exp_likelihoods[k] = negative_likelihoods[k] # spatial_expected_likelihood
 
-        return likelihoods, weights, prop_ratios, pot_sm, pot_fm, pot_sP, pot_fP
+        return likelihoods, weights, pot_sm, pot_fm, pot_sP, pot_fP
 
 
     def target_sample_update(self, nbr_observations, likelihoods, location_ids):
@@ -351,7 +344,7 @@ class RBPFMParticle(object):
         sR = spatial_var*np.identity(spatial_dim) # measurement noise
         fR = self.fR #feature_var*np.identity(feature_dim) # measurement noise
 
-        likelihoods, weights, prop_ratios, pot_sm, pot_fm, pot_sP, pot_fP = \
+        likelihoods, weights, pot_sm, pot_fm, pot_sP, pot_fP = \
             self.target_compute_update(spatial_measurements, feature_measurements, sR, fR, location_ids)
 
         states = self.target_sample_update(nbr_observations, likelihoods, location_ids)
@@ -361,7 +354,6 @@ class RBPFMParticle(object):
 
         for k, i in enumerate(states):
 
-            weight_update *= prop_ratios[k, i]
             self.did_jump = False
             if i == 2*nbr_observations+2:
                 self.nbr_noise += 1
