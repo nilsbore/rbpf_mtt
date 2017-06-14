@@ -58,8 +58,8 @@
         <!-- <param name="data_path" value="$(arg data_path)"/> -->
         <param name="pjump" value="$(arg pjump)"/>
         <param name="pnone" value="$(arg pnone)"/>
-        <param name="qjump" value="$(arg qjump)"/>
-        <param name="qnone" value="$(arg qnone)"/>
+        <param name="location_area" value="$(arg location_area)"/>
+        <param name="use_gibbs" value="$(arg use_gibbs)"/>
         <param name="number_locations" value="$(arg number_locations)"/>
     </node>
     <node pkg="rbpf_mtt" type="smoother_server.py" name="smoother_server" output="screen" respawn="true" unless="$(arg test)">
