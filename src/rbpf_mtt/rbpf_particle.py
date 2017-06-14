@@ -29,7 +29,7 @@ def gauss_expected_likelihood(m, P):
 class RBPFMParticle(object):
 
     def __init__(self, spatial_dim, feature_dim, nbr_targets, nbr_locations, spatial_std, spatial_process_std,
-                 feature_std, pjump=0.025, pnone=0.25, qjump=0.025, qnone=0.25):
+                 feature_std, pjump=0.03, pnone=0.02, location_area=20., use_gibbs=False):
 
         # Parameters
         self.nbr_locations = nbr_locations
@@ -39,8 +39,8 @@ class RBPFMParticle(object):
         self.fR = self.feature_std*self.feature_std*np.identity(feature_dim)
         self.pjump = pjump
         self.pnone = pnone
-        self.location_area = 20.
-        self.use_gibbs = False
+        self.location_area = location_area
+        self.use_gibbs = use_gibbs
 
         # State
         self.c = [] # the last assocations, can be dropped when new time arrives
