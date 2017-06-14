@@ -37,10 +37,10 @@ class SmootherNode(object):
         self.feature_dim = rospy.get_param('~feature_dim', 4)
         self.number_particles = rospy.get_param('~number_particles', 100)
 
-        self.pjump = rospy.get_param('~pjump', 0.025)
-        self.pnone = rospy.get_param('~pnone', 0.25)
-        self.qjump = rospy.get_param('~qjump', 0.025)
-        self.qnone = rospy.get_param('~qnone', 0.25)
+        self.pjump = rospy.get_param('~pjump', 0.03)
+        self.pmeas = rospy.get_param('~pmeas', 0.98)
+        self.location_area = rospy.get_param('~location_area', 20.0)
+        self.use_gibbs = rospy.get_param('~use_gibbs', False)
 
         self.initialize_filter()
 
@@ -58,9 +58,7 @@ class SmootherNode(object):
         print "Trying to set config: ", config
 
         self.pjump = config.pjump
-        self.qjump = config.pjump
-        self.pnone = config.pnone
-        self.qnone = config.pnone
+        self.pmeas = config.pmeas
         self.number_particles = config.number_particles
         self.spatial_std = config.spatial_std
         self.spatial_process_std = config.spatial_process_std
@@ -71,7 +69,7 @@ class SmootherNode(object):
 
         self.smoother = None
         self.smoother = RBPFMTTSmoother(self.nbr_targets, self.nbr_locations, self.number_particles, self.feature_dim, 20, self.spatial_std,
-                                        self.spatial_process_std, self.feature_std, self.pjump, self.pnone, self.qjump, self.qnone)
+                                        self.spatial_process_std, self.feature_std, self.location_area, self.pjump, self.pmeas, self.use_gibbs)
         self.initialized = None
         self.initialized = np.zeros((self.nbr_targets,), dtype=bool)
 

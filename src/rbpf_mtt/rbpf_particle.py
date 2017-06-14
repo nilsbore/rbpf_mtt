@@ -29,32 +29,30 @@ def gauss_expected_likelihood(m, P):
 class RBPFMParticle(object):
 
     def __init__(self, spatial_dim, feature_dim, nbr_targets, nbr_locations, spatial_std, spatial_process_std,
-                 feature_std, pjump=0.025, pnone=0.25, qjump=0.025, qnone=0.25):
+                 feature_std, location_area=20., pjump=0.03, pmeas=0.98, use_gibbs=False):
 
+        # Parameters
         self.nbr_locations = nbr_locations
         self.spatial_std = spatial_std
         self.spatial_process_std = spatial_process_std
         self.feature_std = feature_std
         self.fR = self.feature_std*self.feature_std*np.identity(feature_dim)
+        
+        self.pjump = pjump
+        self.pmeas = pmeas
+        self.use_gibbs = use_gibbs
+        self.location_area = location_area
 
+        # State
         self.c = [] # the last assocations, can be dropped when new time arrives
         self.sm = np.zeros((nbr_targets, spatial_dim)) # the Kalman filter means
         self.fm = np.zeros((nbr_targets, feature_dim))
         self.sP = np.zeros((nbr_targets, spatial_dim, spatial_dim)) # the Kalman filter covariances
         self.fP = np.zeros((nbr_targets, feature_dim, feature_dim))
-        #self.measurement_partitions = np.zeros((nbr_targets), dtype=int) # assigns targets to measurement sets
         self.location_ids = np.zeros((nbr_targets), dtype=int) # assigns targets to measurement sets
-        self.might_have_jumped = np.zeros((nbr_targets), dtype=bool)
-        self.last_time = -1
-
-        self.pjump = pjump
-        self.pnone = pnone
-
-        self.qjump = qjump
-        self.qnone = qnone
+        self.location_unknown = np.zeros((nbr_targets), dtype=bool)
 
         # Debug: these properties are for inspection and non-essential to the algorithm
-        self.did_jump = False
         self.nbr_jumps = 0
         self.nbr_noise = 0
         self.nbr_assoc = 0
@@ -81,10 +79,10 @@ class RBPFMParticle(object):
                 self.sP[j] = self.sP[j] + sQ
                 self.fP[j] = self.fP[j] + fQ
 
-    def compute_prior(self, j, pjump, pnone, location_ids, nbr_observations):
+    def compute_prior(self, j, pjump, pmeas, location_ids, nbr_observations):
 
         pprop = 1. - pjump # probability of local movement to this measurement
-        pmeas = 1. - pnone
+        pnone = 1. - pmeas
         pthis = 1./self.nbr_locations
         pother = 1. - pthis
 
@@ -95,7 +93,7 @@ class RBPFMParticle(object):
 
         #print np.sum(T, axis=1)
 
-        if self.might_have_jumped[j]: # the object has jumped to an unknown location
+        if self.location_unknown[j]: # the object has jumped to an unknown location
             mode = 2
         elif np.sum(location_ids == self.location_ids[j]) == 0: # the estimate is in a different location
             mode = 1
@@ -118,7 +116,6 @@ class RBPFMParticle(object):
         spatial_dim = self.sm.shape[1]
         feature_dim = self.fm.shape[1]
         nbr_observations = spatial_measurements.shape[0]
-        sQ = self.spatial_process_std*self.spatial_process_std*np.identity(self.sm.shape[1]) # process noise
 
         # Can we have 4-dimensional matrix in numpy, YES WE CAN!
         pot_sm = np.zeros((nbr_targets, nbr_observations, spatial_dim)) # the Kalman filter means
@@ -126,93 +123,63 @@ class RBPFMParticle(object):
         pot_sP = np.zeros((nbr_targets, nbr_observations, spatial_dim, spatial_dim)) # the Kalman filter covariances
         pot_fP = np.zeros((nbr_targets, nbr_observations, feature_dim, feature_dim))
         likelihoods = np.zeros((nbr_targets, 2*nbr_observations+3))
-        prop_ratios = np.zeros((nbr_targets, 2*nbr_observations+3))
         weights = np.zeros((nbr_targets,))
-        #pc = np.zeros((nbr_targets, 2*nbr_observations+1))
         
-        self.predict(location_ids)
-
         spatial_likelihoods = np.zeros((nbr_targets, nbr_observations))
         feature_likelihoods = np.zeros((nbr_targets, nbr_observations))
         spatial_expected_likelihoods = np.zeros((nbr_targets,))
         feature_expected_likelihoods = np.zeros((nbr_targets,))
+        
+        self.predict(location_ids)
 
         # compute the likelihoods for all the observations and targets
-        for k in range(0, nbr_targets):
+        for j in range(0, nbr_targets):
 
-            sS = self.sP[k] + sR # IS = (R + H*P*H');
-            fS = self.fP[k] + fR
+            sS = self.sP[j] + sR # IS = (R + H*P*H');
+            fS = self.fP[j] + fR
 
             # sP^T = sP, sR^t = sR -> sS^-1*sP = sP*sS^-1
-            sK = np.linalg.solve(sS, self.sP[k]) # K = P*H'/IS;
-            fK = np.linalg.solve(fS, self.fP[k])
+            sK = np.linalg.solve(sS, self.sP[j]) # K = P*H'/IS;
+            fK = np.linalg.solve(fS, self.fP[j])
 
-            for j in range(0, nbr_observations):
+            for m in range(0, nbr_observations):
 
-                sy = spatial_measurements[j] - self.sm[k]
-                fy = feature_measurements[j] - self.fm[k]
+                sy = spatial_measurements[m] - self.sm[j]
+                fy = feature_measurements[m] - self.fm[j]
 
-                pot_sm[k, j] = self.sm[k] + np.dot(sK, sy) # X = X + K * (y-IM);
-                pot_fm[k, j] = self.fm[k] + np.dot(fK, fy)
-                pot_sP[k, j] = np.dot((np.identity(spatial_dim) - sK), self.sP[k])
-                pot_fP[k, j] = np.dot((np.identity(feature_dim) - fK), self.fP[k])
+                pot_sm[j, m] = self.sm[k] + np.dot(sK, sy) # X = X + K * (y-IM);
+                pot_fm[j, m] = self.fm[k] + np.dot(fK, fy)
+                pot_sP[j, m] = np.dot((np.identity(spatial_dim) - sK), self.sP[j])
+                pot_fP[j, m] = np.dot((np.identity(feature_dim) - fK), self.fP[j])
 
                 # TODO: wait 1s, didn't they write that this should be pot_sm[j]?
-                spatial_likelihoods[k, j] = gauss_pdf(spatial_measurements[j], self.sm[k], sS)
-                feature_likelihoods[k, j] = gauss_pdf(feature_measurements[j], self.fm[k], fS)
+                spatial_likelihoods[j, m] = gauss_pdf(spatial_measurements[m], self.sm[j], sS)
+                feature_likelihoods[j, m] = gauss_pdf(feature_measurements[m], self.fm[j], fS)
         
-            spatial_expected_likelihoods[k] = gauss_expected_likelihood(self.sm[k], sS)
-            feature_expected_likelihoods[k] = gauss_expected_likelihood(self.fm[k], fS)
+            spatial_expected_likelihoods[j] = gauss_expected_likelihood(self.sm[j], sS)
+            feature_expected_likelihoods[j] = gauss_expected_likelihood(self.fm[j], fS)
 
-        negative_likelihoods = np.zeros((nbr_targets,))
-        for k in range(0, nbr_targets):
-
-            negative_likelihoods[k] = np.mean((spatial_likelihoods[:, :nbr_observations]+1./20.)*feature_likelihoods[:, :nbr_observations]) - \
-                                        1./float(nbr_targets)*np.mean((spatial_likelihoods[k, :nbr_observations]+1./20.)*feature_likelihoods[k, :nbr_observations])
-
-        for k in range(0, nbr_targets):
+        # compute the priors and proposals
+        for j in range(0, nbr_targets):
             
-            prior = self.compute_prior(k, self.pjump, self.pnone, location_ids, nbr_observations)
-            prop_prior = self.compute_prior(k,self.qjump, self.qnone, location_ids, nbr_observations)
+            prior = self.compute_prior(j, self.pjump, self.pnone, location_ids, nbr_observations)
             
             likelihood = np.zeros((2*nbr_observations+3,))
-
-            #likelihoods[k, :nbr_observations] = spatial_likelihoods[k, :]*feature_likelihoods[k, :]
-            #likelihoods[k, nbr_observations:2*nbr_observations] = pjump*feature_likelihoods[k, :]
-            #likelihoods[k, 2*nbr_observations] = target_pnone
-            #weights[k] = np.sum(likelihoods[k])
-            #likelihoods[k] = 1./weights[k]*likelihoods[k]
-
-            #spatial_expected_likelihood = gauss_expected_likelihood(self.sm[k], sS)
-            #feature_expected_likelihood = gauss_expected_likelihood(self.fm[k], fS)
-            #if np.sum(location_ids == self.location_ids[k]) == 0: # the estimate is in a different location
-            #    spatial_expected_likelihood = gauss_expected_likelihood(self.sm[k], 10.*(sS+sQ))
-            #else:
-            #    spatial_expected_likelihood = gauss_expected_likelihood(self.sm[k], 10.*sS)
-            location_spatial_density = 1./20.
-            feature_density = 0.001
-
-            likelihood[:nbr_observations] = spatial_likelihoods[k, :]*feature_likelihoods[k, :]
-            likelihood[nbr_observations:2*nbr_observations] = location_spatial_density*feature_likelihoods[k, :]
-            mean_likelihood = np.mean(prior[:2*nbr_observations]*likelihood[:2*nbr_observations])/np.sum(prior[:2*nbr_observations])
-            likelihood[2*nbr_observations:] = 1./float(nbr_targets)*spatial_expected_likelihoods[k]*feature_expected_likelihoods[k]
-            prop_proposal = prop_prior*likelihood
+            likelihood[:nbr_observations] = spatial_likelihoods[j, :]*feature_likelihoods[j, :]
+            likelihood[nbr_observations:2*nbr_observations] = 1./self.location_area*feature_likelihoods[j, :]
+            likelihood[2*nbr_observations:] = 1./float(nbr_targets)*spatial_expected_likelihoods[j]*feature_expected_likelihoods[j]
+            
             proposal = prior*likelihood
 
-            weight = np.sum(proposal)
-            prop_proposal *= 1./np.sum(prop_proposal)
-            proposal *= 1./weight
+            weights[j] = np.sum(proposal)
+            proposal *= 1./weights[j]
 
-            weights[k] = weight
-            likelihoods[k] = prop_proposal
+            likelihoods[j] = proposal
 
-            prop_proposal[prop_proposal == 0] = 1.
-            prop_ratios[k] = proposal / prop_proposal
-
-            self.max_likelihoods[k] = np.max(spatial_likelihoods[k, :]*feature_likelihoods[k, :])
-            self.max_exp_likelihoods[k] = negative_likelihoods[k] # spatial_expected_likelihood
-
-        return likelihoods, weights, prop_ratios, pot_sm, pot_fm, pot_sP, pot_fP
+            self.max_likelihoods[j] = np.max(spatial_likelihoods[j, :]*feature_likelihoods[j, :])
+            self.max_exp_likelihoods[j] = 1./float(nbr_targets)*spatial_expected_likelihoods[j]*feature_expected_likelihoods[j]
+ 
+        return likelihoods, weights, pot_sm, pot_fm, pot_sP, pot_fP
 
 
     def target_sample_update(self, nbr_observations, likelihoods, location_ids):
@@ -248,11 +215,11 @@ class RBPFMParticle(object):
         for j in range(0, nbr_targets):
 
             self.c.append(sampled_states[j])
-            #self.might_have_jumped[j] = False # associated with target or jump
+            #self.location_unknown[j] = False # associated with target or jump
             if states[j] == 2*nbr_observations+2:
-                self.might_have_jumped[j] = True
-            elif self.might_have_jumped[j]:
-                self.might_have_jumped[j] = False
+                self.location_unknown[j] = True
+            elif self.location_unknown[j]:
+                self.location_unknown[j] = False
                 self.location_ids[j] = location_ids[0]
             elif sampled_states[j] > 0:
                 self.location_ids[j] = location_ids[sampled_states[j]]
@@ -275,7 +242,7 @@ class RBPFMParticle(object):
             if len(np.unique(np.mod(b, nbr_observations))) == len(b):
                 break
         
-        for n in range(0, 1000):
+        for n in range(0, 1000): # wow, 1000???
             inds = np.random.choice(nbr_targets, 2, replace=False)
             nbr_assigned = np.sum(states < 2*nbr_observations)
             marginals1 = np.array(weights[0]*likelihoods[inds[0]])
@@ -314,11 +281,11 @@ class RBPFMParticle(object):
         for j in range(0, nbr_targets):
 
             self.c.append(sampled_states[j])
-            #self.might_have_jumped[j] = False # associated with target or jump
+            #self.location_unknown[j] = False # associated with target or jump
             if states[j] == 2*nbr_observations+2:
-                self.might_have_jumped[j] = True
-            elif self.might_have_jumped[j]:
-                self.might_have_jumped[j] = False
+                self.location_unknown[j] = True
+            elif self.location_unknown[j]:
+                self.location_unknown[j] = False
                 self.location_ids[j] = location_ids[0]
             elif sampled_states[j] > 0:
                 self.location_ids[j] = location_ids[sampled_states[j]]
@@ -332,11 +299,6 @@ class RBPFMParticle(object):
     def update(self, spatial_measurements, feature_measurements, time, observation_id, location_ids):
 
         self.c = []
-        self.did_jump = False
-
-        if time != self.last_time:
-            self.c = []
-            self.last_time = time
 
         #print "Got measurement with observations: ", spatial_measurements.shape[0]
 
@@ -351,25 +313,24 @@ class RBPFMParticle(object):
         sR = spatial_var*np.identity(spatial_dim) # measurement noise
         fR = self.fR #feature_var*np.identity(feature_dim) # measurement noise
 
-        likelihoods, weights, prop_ratios, pot_sm, pot_fm, pot_sP, pot_fP = \
+        likelihoods, weights, pot_sm, pot_fm, pot_sP, pot_fP = \
             self.target_compute_update(spatial_measurements, feature_measurements, sR, fR, location_ids)
-
-        states = self.target_sample_update(nbr_observations, likelihoods, location_ids)
-        #states = self.gibbs_sample_update(nbr_observations, likelihoods, weights, location_ids)
+        
+        if self.use_gibbs:
+            states = self.gibbs_sample_update(nbr_observations, likelihoods, weights, location_ids)
+        else:
+            states = self.target_sample_update(nbr_observations, likelihoods, location_ids)
 
         weight_update = np.prod(weights)
 
         for k, i in enumerate(states):
 
-            weight_update *= prop_ratios[k, i]
-            self.did_jump = False
             if i == 2*nbr_observations+2:
                 self.nbr_noise += 1
                 self.sampled_modes[4] += 1
             elif i == 2*nbr_observations+1:
                 self.nbr_noise += 1
                 self.nbr_jumps += 1
-                self.did_jump = True
                 self.sampled_modes[3] += 1
             elif i == 2*nbr_observations:
                 self.nbr_noise += 1
@@ -377,19 +338,15 @@ class RBPFMParticle(object):
             elif i >= nbr_observations:
                 self.sm[k] = spatial_measurements[i % nbr_observations]
                 self.sP[k] = spatial_var*np.eye(spatial_dim)
-                self.did_jump = True
                 self.nbr_jumps += 1
                 self.target_jumps[k] += 1
-                #weights_update *= 0.2
                 self.sampled_modes[1] += 1
             else:
                 self.sm[k] = pot_sm[k, i]
                 self.fm[k] = pot_fm[k, i]
                 self.sP[k] = pot_sP[k, i]
                 self.fP[k] = pot_fP[k, i]
-                #self.associations[observation_id] = i
                 self.nbr_assoc += 1
-                #weights_update *= 1.0#likelihoods[k, i]/pc[k, i]
                 self.sampled_modes[0] += 1
 
         return weight_update
