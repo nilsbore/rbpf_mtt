@@ -147,8 +147,8 @@ class RBPFMParticle(object):
                 sy = spatial_measurements[m] - self.sm[j]
                 fy = feature_measurements[m] - self.fm[j]
 
-                pot_sm[j, m] = self.sm[k] + np.dot(sK, sy) # X = X + K * (y-IM);
-                pot_fm[j, m] = self.fm[k] + np.dot(fK, fy)
+                pot_sm[j, m] = self.sm[j] + np.dot(sK, sy) # X = X + K * (y-IM);
+                pot_fm[j, m] = self.fm[j] + np.dot(fK, fy)
                 pot_sP[j, m] = np.dot((np.identity(spatial_dim) - sK), self.sP[j])
                 pot_fP[j, m] = np.dot((np.identity(feature_dim) - fK), self.fP[j])
 
@@ -162,7 +162,7 @@ class RBPFMParticle(object):
         # compute the priors and proposals
         for j in range(0, nbr_targets):
             
-            prior = self.compute_prior(j, self.pjump, self.pnone, location_ids, nbr_observations)
+            prior = self.compute_prior(j, self.pjump, self.pmeas, location_ids, nbr_observations)
             
             likelihood = np.zeros((2*nbr_observations+3,))
             likelihood[:nbr_observations] = spatial_likelihoods[j, :]*feature_likelihoods[j, :]
@@ -175,6 +175,7 @@ class RBPFMParticle(object):
             proposal *= 1./weights[j]
 
             likelihoods[j] = proposal
+            proposal[proposal==0]=1.
 
             self.max_likelihoods[j] = np.max(spatial_likelihoods[j, :]*feature_likelihoods[j, :])
             self.max_exp_likelihoods[j] = 1./float(nbr_targets)*spatial_expected_likelihoods[j]*feature_expected_likelihoods[j]
@@ -242,7 +243,7 @@ class RBPFMParticle(object):
             if len(np.unique(np.mod(b, nbr_observations))) == len(b):
                 break
         
-        for n in range(0, 1000): # wow, 1000???
+        for n in range(0, 100): # wow, 1000???
             inds = np.random.choice(nbr_targets, 2, replace=False)
             nbr_assigned = np.sum(states < 2*nbr_observations)
             marginals1 = np.array(weights[0]*likelihoods[inds[0]])

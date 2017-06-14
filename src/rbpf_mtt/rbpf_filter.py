@@ -17,7 +17,7 @@ def par_update_particle(spatial_measurements, feature_measurements, time, observ
 class RBPFMTTFilter(object):
 
     def __init__(self, nbr_targets, nbr_locations, nbr_particles, feature_dim, spatial_std=0.63, spatial_process_std=0.25,
-                 feature_std, location_area=20., pjump=0.03, pmeas=0.98, use_gibbs=False):
+                 feature_std=0.45, location_area=20., pjump=0.03, pmeas=0.98, use_gibbs=False):
 
         self.dim = 2 # I would like for this to be global instead
         self.feature_dim = feature_dim
