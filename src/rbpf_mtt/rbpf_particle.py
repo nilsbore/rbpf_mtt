@@ -31,24 +31,25 @@ class RBPFMParticle(object):
     def __init__(self, spatial_dim, feature_dim, nbr_targets, nbr_locations, spatial_std, spatial_process_std,
                  feature_std, pjump=0.025, pnone=0.25, qjump=0.025, qnone=0.25):
 
+        # Parameters
         self.nbr_locations = nbr_locations
         self.spatial_std = spatial_std
         self.spatial_process_std = spatial_process_std
         self.feature_std = feature_std
         self.fR = self.feature_std*self.feature_std*np.identity(feature_dim)
+        self.pjump = pjump
+        self.pnone = pnone
+        self.location_area = 20.
 
+        # State
         self.c = [] # the last assocations, can be dropped when new time arrives
         self.sm = np.zeros((nbr_targets, spatial_dim)) # the Kalman filter means
         self.fm = np.zeros((nbr_targets, feature_dim))
         self.sP = np.zeros((nbr_targets, spatial_dim, spatial_dim)) # the Kalman filter covariances
         self.fP = np.zeros((nbr_targets, feature_dim, feature_dim))
-        #self.measurement_partitions = np.zeros((nbr_targets), dtype=int) # assigns targets to measurement sets
         self.location_ids = np.zeros((nbr_targets), dtype=int) # assigns targets to measurement sets
         self.might_have_jumped = np.zeros((nbr_targets), dtype=bool)
         self.last_time = -1
-
-        self.pjump = pjump
-        self.pnone = pnone
 
         # Debug: these properties are for inspection and non-essential to the algorithm
         self.did_jump = False
@@ -172,11 +173,8 @@ class RBPFMParticle(object):
             
             likelihood = np.zeros((2*nbr_observations+3,))
 
-            location_spatial_density = 1./20.
-
             likelihood[:nbr_observations] = spatial_likelihoods[k, :]*feature_likelihoods[k, :]
-            likelihood[nbr_observations:2*nbr_observations] = location_spatial_density*feature_likelihoods[k, :]
-            mean_likelihood = np.mean(prior[:2*nbr_observations]*likelihood[:2*nbr_observations])/np.sum(prior[:2*nbr_observations])
+            likelihood[nbr_observations:2*nbr_observations] = 1./self.location_area*feature_likelihoods[k, :]
             likelihood[2*nbr_observations:] = 1./float(nbr_targets)*spatial_expected_likelihoods[k]*feature_expected_likelihoods[k]
             
             proposal = prior*likelihood
