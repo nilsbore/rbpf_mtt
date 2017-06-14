@@ -243,7 +243,7 @@ class RBPFMParticle(object):
         
         for n in range(0, 100):
             inds = np.random.choice(nbr_targets, 2, replace=False)
-            nbr_assigned = np.sum(states < 2*nbr_observations)
+            nbr_assigned = np.sum(states < 2*nbr_observations) - np.sum(states[inds] < 2*nbr_observations)
             marginals1 = np.array(weights[0]*likelihoods[inds[0]])
             marginals2 = np.array(weights[1]*likelihoods[inds[1]])
             # find all inds where a < nbr_observations and != inds[1] or inds[0]
