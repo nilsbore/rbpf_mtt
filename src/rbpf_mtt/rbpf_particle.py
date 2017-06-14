@@ -217,7 +217,6 @@ class RBPFMParticle(object):
         for j in range(0, nbr_targets):
 
             self.c.append(sampled_states[j])
-            #self.location_unknown[j] = False # associated with target or jump
             if states[j] == 2*nbr_observations+2:
                 self.location_unknown[j] = True
             elif self.location_unknown[j]:
@@ -225,8 +224,6 @@ class RBPFMParticle(object):
                 self.location_ids[j] = location_ids[0]
             elif sampled_states[j] > 0:
                 self.location_ids[j] = location_ids[sampled_states[j]]
-            #else:
-            #    self.location_ids[j] = location_ids[0]
 
         return states
     
@@ -244,7 +241,7 @@ class RBPFMParticle(object):
             if len(np.unique(np.mod(b, nbr_observations))) == len(b):
                 break
         
-        for n in range(0, 1000):
+        for n in range(0, 100):
             inds = np.random.choice(nbr_targets, 2, replace=False)
             nbr_assigned = np.sum(states < 2*nbr_observations)
             marginals1 = np.array(weights[0]*likelihoods[inds[0]])
@@ -283,7 +280,6 @@ class RBPFMParticle(object):
         for j in range(0, nbr_targets):
 
             self.c.append(sampled_states[j])
-            #self.location_unknown[j] = False # associated with target or jump
             if states[j] == 2*nbr_observations+2:
                 self.location_unknown[j] = True
             elif self.location_unknown[j]:
@@ -291,8 +287,6 @@ class RBPFMParticle(object):
                 self.location_ids[j] = location_ids[0]
             elif sampled_states[j] > 0:
                 self.location_ids[j] = location_ids[sampled_states[j]]
-            #else:
-            #    self.location_ids[j] = location_ids[0]
 
         return states
 
