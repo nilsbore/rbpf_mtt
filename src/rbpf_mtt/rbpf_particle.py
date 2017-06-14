@@ -50,9 +50,6 @@ class RBPFMParticle(object):
         self.pjump = pjump
         self.pnone = pnone
 
-        self.qjump = qjump
-        self.qnone = qnone
-
         # Debug: these properties are for inspection and non-essential to the algorithm
         self.did_jump = False
         self.nbr_jumps = 0
@@ -175,20 +172,7 @@ class RBPFMParticle(object):
             
             likelihood = np.zeros((2*nbr_observations+3,))
 
-            #likelihoods[k, :nbr_observations] = spatial_likelihoods[k, :]*feature_likelihoods[k, :]
-            #likelihoods[k, nbr_observations:2*nbr_observations] = pjump*feature_likelihoods[k, :]
-            #likelihoods[k, 2*nbr_observations] = target_pnone
-            #weights[k] = np.sum(likelihoods[k])
-            #likelihoods[k] = 1./weights[k]*likelihoods[k]
-
-            #spatial_expected_likelihood = gauss_expected_likelihood(self.sm[k], sS)
-            #feature_expected_likelihood = gauss_expected_likelihood(self.fm[k], fS)
-            #if np.sum(location_ids == self.location_ids[k]) == 0: # the estimate is in a different location
-            #    spatial_expected_likelihood = gauss_expected_likelihood(self.sm[k], 10.*(sS+sQ))
-            #else:
-            #    spatial_expected_likelihood = gauss_expected_likelihood(self.sm[k], 10.*sS)
             location_spatial_density = 1./20.
-            feature_density = 0.001
 
             likelihood[:nbr_observations] = spatial_likelihoods[k, :]*feature_likelihoods[k, :]
             likelihood[nbr_observations:2*nbr_observations] = location_spatial_density*feature_likelihoods[k, :]
