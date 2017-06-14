@@ -40,6 +40,7 @@ class RBPFMParticle(object):
         self.pjump = pjump
         self.pnone = pnone
         self.location_area = 20.
+        self.use_gibbs = False
 
         # State
         self.c = [] # the last assocations, can be dropped when new time arrives
@@ -317,13 +318,15 @@ class RBPFMParticle(object):
         nbr_observations = spatial_measurements.shape[0]
 
         sR = spatial_var*np.identity(spatial_dim) # measurement noise
-        fR = self.fR #feature_var*np.identity(feature_dim) # measurement noise
+        fR = self.fR
 
         likelihoods, weights, pot_sm, pot_fm, pot_sP, pot_fP = \
             self.target_compute_update(spatial_measurements, feature_measurements, sR, fR, location_ids)
 
-        states = self.target_sample_update(nbr_observations, likelihoods, location_ids)
-        #states = self.gibbs_sample_update(nbr_observations, likelihoods, weights, location_ids)
+        if self.use_gibbs:
+            states = self.gibbs_sample_update(nbr_observations, likelihoods, weights, location_ids)
+        else:
+            states = self.target_sample_update(nbr_observations, likelihoods, location_ids)
 
         weight_update = np.prod(weights)
 
@@ -347,16 +350,13 @@ class RBPFMParticle(object):
                 self.did_jump = True
                 self.nbr_jumps += 1
                 self.target_jumps[k] += 1
-                #weights_update *= 0.2
                 self.sampled_modes[1] += 1
             else:
                 self.sm[k] = pot_sm[k, i]
                 self.fm[k] = pot_fm[k, i]
                 self.sP[k] = pot_sP[k, i]
                 self.fP[k] = pot_fP[k, i]
-                #self.associations[observation_id] = i
                 self.nbr_assoc += 1
-                #weights_update *= 1.0#likelihoods[k, i]/pc[k, i]
                 self.sampled_modes[0] += 1
 
         return weight_update
