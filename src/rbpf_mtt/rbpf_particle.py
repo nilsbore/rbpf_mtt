@@ -116,7 +116,6 @@ class RBPFMParticle(object):
         spatial_dim = self.sm.shape[1]
         feature_dim = self.fm.shape[1]
         nbr_observations = spatial_measurements.shape[0]
-        sQ = self.spatial_process_std*self.spatial_process_std*np.identity(self.sm.shape[1]) # process noise
 
         # Can we have 4-dimensional matrix in numpy, YES WE CAN!
         pot_sm = np.zeros((nbr_targets, nbr_observations, spatial_dim)) # the Kalman filter means
@@ -125,14 +124,13 @@ class RBPFMParticle(object):
         pot_fP = np.zeros((nbr_targets, nbr_observations, feature_dim, feature_dim))
         likelihoods = np.zeros((nbr_targets, 2*nbr_observations+3))
         weights = np.zeros((nbr_targets,))
-        #pc = np.zeros((nbr_targets, 2*nbr_observations+1))
         
-        self.predict(location_ids)
-
         spatial_likelihoods = np.zeros((nbr_targets, nbr_observations))
         feature_likelihoods = np.zeros((nbr_targets, nbr_observations))
         spatial_expected_likelihoods = np.zeros((nbr_targets,))
         feature_expected_likelihoods = np.zeros((nbr_targets,))
+
+        self.predict(location_ids)
 
         # compute the likelihoods for all the observations and targets
         for k in range(0, nbr_targets):
@@ -161,7 +159,7 @@ class RBPFMParticle(object):
             spatial_expected_likelihoods[k] = gauss_expected_likelihood(self.sm[k], sS)
             feature_expected_likelihoods[k] = gauss_expected_likelihood(self.fm[k], fS)
 
-
+        # Compute all the likelihoods
         for k in range(0, nbr_targets):
             
             prior = self.compute_prior(k, self.pjump, self.pnone, location_ids, nbr_observations)
