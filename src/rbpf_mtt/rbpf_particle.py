@@ -161,11 +161,6 @@ class RBPFMParticle(object):
             spatial_expected_likelihoods[k] = gauss_expected_likelihood(self.sm[k], sS)
             feature_expected_likelihoods[k] = gauss_expected_likelihood(self.fm[k], fS)
 
-        negative_likelihoods = np.zeros((nbr_targets,))
-        for k in range(0, nbr_targets):
-
-            negative_likelihoods[k] = np.mean((spatial_likelihoods[:, :nbr_observations]+1./20.)*feature_likelihoods[:, :nbr_observations]) - \
-                                        1./float(nbr_targets)*np.mean((spatial_likelihoods[k, :nbr_observations]+1./20.)*feature_likelihoods[k, :nbr_observations])
 
         for k in range(0, nbr_targets):
             
@@ -185,7 +180,7 @@ class RBPFMParticle(object):
             likelihoods[k] = proposal
 
             self.max_likelihoods[k] = np.max(spatial_likelihoods[k, :]*feature_likelihoods[k, :])
-            self.max_exp_likelihoods[k] = negative_likelihoods[k] # spatial_expected_likelihood
+            self.max_exp_likelihoods[k] = 1./float(nbr_targets)*spatial_expected_likelihoods[k]*feature_expected_likelihoods[k]
 
         return likelihoods, weights, pot_sm, pot_fm, pot_sP, pot_fP
 
