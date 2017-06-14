@@ -23,9 +23,9 @@
     <!-- <arg name="data_path" default="$(find rbpf_processing)/data"/> -->
 
     <arg name="pjump" default="0.05"/>
-    <arg name="qjump" default="0.05"/>
     <arg name="pnone" default="0.02"/>
-    <arg name="qnone" default="0.02"/>
+    <arg name="location_area" default="20.0"/>
+    <arg name="use_gibbs" default="false"/>
     <arg name="number_locations" default="2"/>
 
     <arg name="filter_maps" default=""/>
