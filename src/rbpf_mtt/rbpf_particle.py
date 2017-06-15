@@ -41,6 +41,7 @@ class RBPFMParticle(object):
         self.pnone = pnone
         self.location_area = location_area
         self.use_gibbs = use_gibbs
+        self.features_only = False
 
         # State
         self.c = [] # the last assocations, can be dropped when new time arrives
@@ -167,10 +168,15 @@ class RBPFMParticle(object):
             
             likelihood = np.zeros((2*nbr_observations+3,))
 
-            likelihood[:nbr_observations] = spatial_likelihoods[k, :]*feature_likelihoods[k, :]
-            likelihood[nbr_observations:2*nbr_observations] = (1./self.location_area)*feature_likelihoods[k, :]
-            likelihood[2*nbr_observations:] = 1./float(nbr_targets)*spatial_expected_likelihoods[k]*feature_expected_likelihoods[k]
-            
+            if self.features_only:
+                likelihood[:nbr_observations] = feature_likelihoods[k, :]
+                likelihood[nbr_observations:2*nbr_observations] = feature_likelihoods[k, :]
+                likelihood[2*nbr_observations:] = 1./float(nbr_targets)*feature_expected_likelihoods[k]
+            else:
+                likelihood[:nbr_observations] = spatial_likelihoods[k, :]*feature_likelihoods[k, :]
+                likelihood[nbr_observations:2*nbr_observations] = (1./self.location_area)*feature_likelihoods[k, :]
+                likelihood[2*nbr_observations:] = 1./float(nbr_targets)*spatial_expected_likelihoods[k]*feature_expected_likelihoods[k]
+        
             proposal = prior*likelihood
 
             weights[k] = np.sum(proposal)
