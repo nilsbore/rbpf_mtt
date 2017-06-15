@@ -352,9 +352,13 @@ class RBPFMParticle(object):
                 self.target_jumps[k] += 1
                 self.sampled_modes[1] += 1
             else:
-                self.sm[k] = pot_sm[k, i]
+                if self.features_only: # we need this just to get predicted positions in this case
+                    self.sm[k] = spatial_measurements[i]
+                    self.sP[k] = spatial_var*np.eye(spatial_dim)
+                else:
+                    self.sm[k] = pot_sm[k, i]
+                    self.sP[k] = pot_sP[k, i]
                 self.fm[k] = pot_fm[k, i]
-                self.sP[k] = pot_sP[k, i]
                 self.fP[k] = pot_fP[k, i]
                 self.nbr_assoc += 1
                 self.sampled_modes[0] += 1
