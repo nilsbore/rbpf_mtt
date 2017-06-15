@@ -30,6 +30,7 @@ class SmootherServer(object):
         filter_location_clouds_string = rospy.get_param('~filter_location_clouds', "")
         self.filter_location_clouds = [int(i) for i in filter_location_clouds_string.split()]
 
+        print "Location filters: ", self.filter_location_clouds
 
         max_iterations = 1000
 
@@ -297,7 +298,7 @@ class SmootherServer(object):
            (not self.is_init and len(self.cloud_paths) > 0):
             self.poses_pub.publish(init_poses)
 
-        if len(self.filter_location_clouds) == 0 or self.location_ids[self.iteration] in self.filter_location_clouds:
+        if len(self.filter_location_clouds) == 0 or self.location_ids[self.iteration-1] in self.filter_location_clouds:
             for i, paths in enumerate(clouds_paths):
                 self.path_pubs[i].publish(paths)
 
@@ -396,6 +397,7 @@ class SmootherServer(object):
         print "Loaded observations sequence with timesteps: ", self.timesteps
         print "Init positions: ", self.spatial_measurements[:self.nbr_targets]
         print "Init features: ", self.feature_measurements[:self.nbr_targets]
+        print "Location IDs: ", self.location_ids[0]
 
         return True
 
