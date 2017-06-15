@@ -70,6 +70,7 @@ class SmootherServer(object):
         self.smooth_pub = rospy.Publisher('smoother_vis', Int32, queue_size=50)
         self.done_pub = rospy.Publisher('playing_done', Empty, queue_size=50)
         self.labels_pub = rospy.Publisher('save_labels', Empty, queue_size=50)
+        self.ready_pub = rospy.Publisher('filter_ready', Empty, queue_size=50)
 
         self.path_pubs = [rospy.Publisher('forward_detected_paths', String, queue_size=50),
                           rospy.Publisher('forward_propagated_paths', String, queue_size=50),
@@ -209,10 +210,13 @@ class SmootherServer(object):
         if self.iteration < len(self.timesteps):
             print "Timestamp: ", self.timesteps[self.iteration]
 
-        if not self.autostep:
+        if (not self.autostep) and (len(self.filter_location_clouds) == 0 or self.iteration-1 >= len(self.timesteps) or self.location_ids[self.iteration-1] in self.filter_location_clouds):
             return
 
         self.step()
+        
+        #if (not self.autostep) and (len(self.filter_location_clouds) > 0 and self.timestep[self.iteration] not in self.filter_location_clouds):
+
 
     def step(self):
 
@@ -301,6 +305,9 @@ class SmootherServer(object):
         if len(self.filter_location_clouds) == 0 or self.location_ids[self.iteration-1] in self.filter_location_clouds:
             for i, paths in enumerate(clouds_paths):
                 self.path_pubs[i].publish(paths)
+
+        if not self.is_init:
+            self.ready_pub.publish()
 
 
     def save_observation_sequence(self, observations_file):
