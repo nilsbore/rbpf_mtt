@@ -20,12 +20,14 @@
     <arg name="discrim_factor" default="2.0"/>
     <arg name="is_init" default="true"/>
     <arg name="color_clouds" default="true"/>
+    <arg name="filter_location_clouds" default=""/>
     <!-- <arg name="data_path" default="$(find rbpf_processing)/data"/> -->
 
-    <arg name="pjump" default="0.003"/>
-    <arg name="qjump" default="0.003"/>
-    <arg name="pnone" default="0.01"/>
-    <arg name="qnone" default="0.01"/>
+    <arg name="pjump" default="0.05"/>
+    <arg name="pnone" default="0.02"/>
+    <arg name="location_area" default="20.0"/>
+    <arg name="use_gibbs" default="false"/>
+    <arg name="number_locations" default="2"/>
 
     <arg name="filter_maps" default=""/>
 
@@ -57,8 +59,9 @@
         <!-- <param name="data_path" value="$(arg data_path)"/> -->
         <param name="pjump" value="$(arg pjump)"/>
         <param name="pnone" value="$(arg pnone)"/>
-        <param name="qjump" value="$(arg qjump)"/>
-        <param name="qnone" value="$(arg qnone)"/>
+        <param name="location_area" value="$(arg location_area)"/>
+        <param name="use_gibbs" value="$(arg use_gibbs)"/>
+        <param name="number_locations" value="$(arg number_locations)" type="str"/>
     </node>
     <node pkg="rbpf_mtt" type="smoother_server.py" name="smoother_server" output="screen" respawn="true" unless="$(arg test)">
         <param name="data_path" value="$(arg data_path)"/>
@@ -66,6 +69,7 @@
         <param name="feature_dim" value="$(arg feature_dim)"/>
         <param name="step_by_timestep" value="$(arg step_by_timestep)"/>
         <param name="is_init" value="$(arg is_init)"/>
+        <param name="filter_location_clouds" value="$(arg filter_location_clouds)"/>
     </node>
 
     <node pkg="rbpf_mtt" type="measurement_simulator" name="measurement_simulator" output="screen" respawn="true">

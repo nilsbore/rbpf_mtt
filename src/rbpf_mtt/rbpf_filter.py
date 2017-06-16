@@ -16,20 +16,21 @@ def par_update_particle(spatial_measurements, feature_measurements, time, observ
 
 class RBPFMTTFilter(object):
 
-    def __init__(self, nbr_targets, nbr_particles, feature_dim, spatial_std=0.63, spatial_process_std=0.25,
-                 feature_std=0.45, pjump=0.025, pnone=0.25, qjump=0.025, qnone=0.25):
+    def __init__(self, nbr_targets, nbr_locations, nbr_particles, feature_dim, spatial_std=0.63, spatial_process_std=0.25,
+                 feature_std=0.45, pjump=0.03, pnone=0.02, location_area=20., use_gibbs=False):
 
         self.dim = 2 # I would like for this to be global instead
         self.feature_dim = feature_dim
         self.nbr_targets = nbr_targets
+        self.nbr_locations = nbr_locations
         self.nbr_particles = nbr_particles
         self.spatial_process_std = spatial_process_std
         self.spatial_std = spatial_std
         self.feature_std = feature_std
         #self.feature_cov = feature_std*feature_std*np.identity(feature_dim)
 
-        self.particles = [RBPFMParticle(self.dim, feature_dim, nbr_targets, spatial_std, spatial_process_std,
-                                        feature_std, pjump, pnone, qjump, qnone) for i in range(0, nbr_particles)]
+        self.particles = [RBPFMParticle(self.dim, feature_dim, nbr_targets, nbr_locations, spatial_std, spatial_process_std,
+                                        feature_std, pjump, pnone, location_area, use_gibbs) for i in range(0, nbr_particles)]
         self.weights = 1./nbr_particles*np.ones((nbr_particles))
 
         self.last_time = -1
@@ -166,6 +167,18 @@ class RBPFMTTFilter(object):
 
         #particlestring = pickle.dumps(self.particles)
         #print "Number of particles: ", len(self.particles), " particle pickle length: ", len(particlestring)
+        
+        sampled_modes = np.zeros((5,))
+        for p in self.particles:
+            for j in range(0, self.nbr_targets):
+                if np.sum(location_ids == p.location_ids[j]) > 0:
+                    print "Target ", j, " max likelihood: ", p.max_likelihoods[j], ", max exp likelihood: ", p.max_exp_likelihoods[j]
+            sampled_modes += p.sampled_modes
+
+        print "1. measure current room 2. measure jump current room 3. propagate no meas 4. jump no meas current room 5. jump to other room, no meas"
+        print sampled_modes/float(len(self.particles))
+
+
 
 
     def initialize_target(self, target_id, spatial_measurement, feature_measurement, feature_covariance, location_id):
