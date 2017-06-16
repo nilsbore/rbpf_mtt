@@ -61,7 +61,7 @@
         <param name="pnone" value="$(arg pnone)"/>
         <param name="location_area" value="$(arg location_area)"/>
         <param name="use_gibbs" value="$(arg use_gibbs)"/>
-        <param name="number_locations" value="$(arg number_locations)" type="str"/>
+        <param name="number_locations" value="$(arg number_locations)"/>
     </node>
     <node pkg="rbpf_mtt" type="smoother_server.py" name="smoother_server" output="screen" respawn="true" unless="$(arg test)">
         <param name="data_path" value="$(arg data_path)"/>
@@ -69,7 +69,7 @@
         <param name="feature_dim" value="$(arg feature_dim)"/>
         <param name="step_by_timestep" value="$(arg step_by_timestep)"/>
         <param name="is_init" value="$(arg is_init)"/>
-        <param name="filter_location_clouds" value="$(arg filter_location_clouds)"/>
+        <param name="filter_location_clouds" value="$(arg filter_location_clouds)" type="str"/>
     </node>
 
     <node pkg="rbpf_mtt" type="measurement_simulator" name="measurement_simulator" output="screen" respawn="true">
