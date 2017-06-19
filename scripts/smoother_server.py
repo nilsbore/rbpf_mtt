@@ -60,8 +60,8 @@ class SmootherServer(object):
 
         # We should probably save the feature and spatial noise used to generate the measurements
         # The easiest way to do this is to add parameters to the measurement_simulator node
-        self.spatial_measurement_std = rospy.get_param('spatial_measurement_std', 0.1)
-        self.feature_measurement_std = rospy.get_param('feature_measurement_std', 0.1)
+        self.spatial_measurement_std = rospy.get_param('~spatial_measurement_std', 0.1)
+        self.feature_measurement_std = rospy.get_param('~feature_measurement_std', 0.1)
         self.measurement_covariance = self.feature_measurement_std*self.feature_measurement_std*np.identity(self.feature_dim)
 
         #self.gmm_pub = rospy.Publisher('filter_gmms', GMMPoses, queue_size=10)

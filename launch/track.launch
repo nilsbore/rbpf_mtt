@@ -67,6 +67,7 @@
         <param name="data_path" value="$(arg data_path)"/>
         <param name="number_targets" value="$(arg number_targets)"/>
         <param name="feature_dim" value="$(arg feature_dim)"/>
+        <param name="feature_measurement_std" value="$(arg feature_std)"/>
         <param name="step_by_timestep" value="$(arg step_by_timestep)"/>
         <param name="is_init" value="$(arg is_init)"/>
         <param name="filter_location_clouds" value="$(arg filter_location_clouds)" type="str"/>
