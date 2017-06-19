@@ -35,7 +35,7 @@ class SmootherServer(object):
         max_iterations = 1000
 
         # N x 2 dimensions
-        self.spatial_measurements = np.zeros((max_iterations, 2)) # can use the numpy library to save this
+        self.spatial_measurements = np.zeros((max_iterations, 3)) # can use the numpy library to save this
         # N x f dimensions
         self.feature_measurements = np.zeros((max_iterations, self.feature_dim)) # can use the numpy library to save this
         # N dimensions

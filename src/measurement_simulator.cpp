@@ -67,7 +67,7 @@ public:
                 feature[i] = feature_vec_distribution(generator);
             }
             feature.normalize();
-            feature *= discrim_factor*feature_std;
+            feature *= 2.0*discrim_factor*feature_std;
             return feature;
         }
 
