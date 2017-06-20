@@ -30,7 +30,7 @@ def object_id_color(object_id):
                 "vivid_reddish_orange": (241, 58, 19),
                 "dark_olive_green": (35, 44, 22)}
 
-    color = np.array(colors[colors.keys()[object_id]], dtype=float) / 255.0
+    color = np.array(colors[colors.keys()[object_id % 20]], dtype=float) / 255.0
 
     return color
 
