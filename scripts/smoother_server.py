@@ -443,8 +443,9 @@ class SmootherServer(object):
         if len(inds) == 1: # we initialized all the targets!
             self.spatial_measurements = np.vstack((self.spatial_measurements[self.init_inds, :], self.spatial_measurements))
             self.feature_measurements = np.vstack((self.feature_measurements[self.init_inds, :], self.feature_measurements))
+            self.dims = np.vstack((self.dims[self.init_inds, :], self.dims))
             self.timesteps = np.concatenate((0*self.timesteps[self.init_inds], self.timesteps+1))
-            self.spatial_positions = np.vstack((self.spatial_positions[inds, :], self.spatial_positions))
+            self.spatial_positions = np.vstack((self.spatial_positions[self.init_inds, :], self.spatial_positions))
             self.target_ids = np.concatenate((np.arange(0, len(self.init_inds), dtype=int), self.target_ids))
             self.observation_ids = np.arange(0, len(self.timesteps), dtype=int)
             self.location_ids = np.concatenate((self.location_ids[self.init_inds], self.location_ids))
