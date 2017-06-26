@@ -29,7 +29,7 @@ def gauss_expected_likelihood(m, P):
 class RBPFMParticle(object):
 
     def __init__(self, spatial_dim, feature_dim, nbr_targets, nbr_locations, spatial_std, spatial_process_std,
-                 feature_std, pjump=0.03, pnone=0.02, location_area=20., use_gibbs=False):
+                 feature_std, pjump=0.03, pnone=0.02, location_area=20., use_gibbs=False, features_only=False):
 
         # Parameters
         self.nbr_locations = nbr_locations
