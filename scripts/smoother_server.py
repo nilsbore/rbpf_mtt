@@ -172,6 +172,8 @@ class SmootherServer(object):
             self.iteration = 0
         elif goal.action == 'save':
             self.save_observation_sequence(goal.observations_file)
+        elif goal.action == 'set_path':
+            self.data_path = goal.observations_file
         elif goal.action == 'save_labels':
             self.labels_pub.publish()
             SmootherServer._result.response = "Sent message to save labels"
