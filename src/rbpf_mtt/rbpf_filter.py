@@ -151,7 +151,7 @@ class RBPFMTTFilter(object):
         self.weights *= np.array(weight_updates)
         self.weights = 1./np.sum(self.weights)*self.weights
 
-        if self.effective_sample_size() < 0.5*float(self.nbr_particles):
+        if self.effective_sample_size() < 0.1*float(self.nbr_particles):
             self.multinomial_resample()
             #self.systematic_resample()
         else:
