@@ -41,7 +41,7 @@ class RBPFMParticle(object):
         self.pnone = pnone
         self.location_area = location_area
         self.use_gibbs = use_gibbs
-        self.features_only = False
+        self.features_only = features_only
 
         # State
         self.c = [] # the last assocations, can be dropped when new time arrives
