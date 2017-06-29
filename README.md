@@ -28,3 +28,8 @@ roslaunch rbpf_mtt track.launch map:=/path/to/map.yaml db_path:=/path/to/mongodb
 # Processing meta room observations
 
 See [the rbpf_processing package](https://github.com/nilsbore/rbpf_processing.git) for details.
+
+# Benchmarking the method
+
+In [the rbpf_benchmark package](https://github.com/nilsbore/rbpf_benchmark.git), I provide detailed
+information on how to reproduce the results in the paper detailing this method.
