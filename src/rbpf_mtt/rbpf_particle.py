@@ -124,7 +124,7 @@ class RBPFMParticle(object):
         pot_fm = np.zeros((nbr_targets, nbr_observations, feature_dim))
         pot_sP = np.zeros((nbr_targets, nbr_observations, spatial_dim, spatial_dim)) # the Kalman filter covariances
         pot_fP = np.zeros((nbr_targets, nbr_observations, feature_dim, feature_dim))
-        likelihoods = np.zeros((nbr_targets, 2*nbr_observations+3))
+        proposals = np.zeros((nbr_targets, 2*nbr_observations+3))
         weights = np.zeros((nbr_targets,))
         
         spatial_likelihoods = np.zeros((nbr_targets, nbr_observations))
@@ -161,7 +161,11 @@ class RBPFMParticle(object):
             spatial_expected_likelihoods[k] = gauss_expected_likelihood(self.sm[k], sS)
             feature_expected_likelihoods[k] = gauss_expected_likelihood(self.fm[k], fS)
 
-        # Compute all the likelihoods
+        # these values are estimated by the rbpf_conversion.py node
+        feature_support = 891. # for moving_various_semantic_map
+        #feature_support = 648. # for moving_chairs_semantic_map
+
+        # Compute all the priors and proposals
         for k in range(0, nbr_targets):
             
             prior = self.compute_prior(k, self.pjump, self.pnone, location_ids, nbr_observations)
@@ -176,21 +180,21 @@ class RBPFMParticle(object):
                 likelihood[:nbr_observations] = spatial_likelihoods[k, :]*feature_likelihoods[k, :]
                 likelihood[nbr_observations:2*nbr_observations] = (1./self.location_area)*feature_likelihoods[k, :]
                 likelihood[2*nbr_observations:] = 1./float(nbr_targets)*spatial_expected_likelihoods[k]*feature_expected_likelihoods[k]
-        
+                #likelihood[2*nbr_observations:] = 1./(self.location_area*feature_support)
             proposal = prior*likelihood
 
             weights[k] = np.sum(proposal)
             proposal *= 1./weights[k]
 
-            likelihoods[k] = proposal
+            proposals[k] = proposal
 
             self.max_likelihoods[k] = np.max(spatial_likelihoods[k, :]*feature_likelihoods[k, :])
             self.max_exp_likelihoods[k] = 1./float(nbr_targets)*spatial_expected_likelihoods[k]*feature_expected_likelihoods[k]
 
-        return likelihoods, weights, pot_sm, pot_fm, pot_sP, pot_fP
+        return proposals, weights, pot_sm, pot_fm, pot_sP, pot_fP
 
 
-    def target_sample_update(self, nbr_observations, likelihoods, location_ids):
+    def target_sample_update(self, nbr_observations, proposals, location_ids):
 
         nbr_targets = self.sm.shape[0]
         spatial_dim = self.sm.shape[1]
@@ -204,7 +208,7 @@ class RBPFMParticle(object):
             nbr_no_meas = 0
             for j in range(0, nbr_targets):
                 # the problem here is that it does not take the other probabilites into account
-                states[j] = np.random.choice(2*nbr_observations+3, p=likelihoods[j])
+                states[j] = np.random.choice(2*nbr_observations+3, p=proposals[j])
                 if states[j] < 2*nbr_observations:
                     sampled_states[j] = states[j] % nbr_observations
                 else:
@@ -232,8 +236,42 @@ class RBPFMParticle(object):
                 self.location_ids[j] = location_ids[sampled_states[j]]
 
         return states
-    
-    def gibbs_sample_update(self, nbr_observations, likelihoods, weights, location_ids):
+
+    # To determine the likelihoods for Gibbs sampling, there are 4 basic cases to consider
+    #
+    # o - target
+    # x - observation
+    #
+    # | - association
+    # v
+    #
+    # By p(y_m), we mean p(y_m | c_jk = m) or p(y_m | m clutter)
+    #
+    # Association cases:
+    # ==================
+    # o o o
+    # | |     Always p(y_m)p(y_n) (since c_jk will always determine one y_m and one y_n)
+    # v v
+    # x x x - - - -
+    # ==================
+    # o o o o - - -
+    # | | |   Always 1 (since all measurements are already assigned) - equivalent to p(y_m)p(y_n) since they must be constant clutter likelihoods
+    # v v v
+    # x x x
+    # ==================
+    # o o o o - - -
+    # | |     Always p(y_3) (since c_jk will determine only y_3) - equivalent to p(y_m)p(y_n) since one is always constant clutter the other will determine p(y_3)
+    # v v
+    # x x x
+    # ==================
+    # o o o o - - -
+    # |       Always p(y_m)p(y_n) (since c_jk will always determine one y_m and one y_n)
+    # v
+    # x x x
+    # ==================
+    #
+    # Because of these considerations, the likelihood is well described by the cartesian product of the two likelihoods
+    def gibbs_sample_update(self, nbr_observations, proposals, weights, location_ids):
 
         nbr_targets = self.sm.shape[0]
         spatial_dim = self.sm.shape[1]
@@ -242,18 +280,20 @@ class RBPFMParticle(object):
         states = np.zeros((nbr_targets,), dtype=int)
         while True:
             for j in range(0, nbr_targets):
-                states[j] = np.random.choice(2*nbr_observations+3, 1, p=likelihoods[j])
+                states[j] = np.random.choice(2*nbr_observations+3, 1, p=proposals[j])
             b = states[states < 2*nbr_observations]
             if len(np.unique(np.mod(b, nbr_observations))) == len(b):
                 break
         
-        for n in range(0, 100):
+        nbr_burn_in = 100
+        for n in range(0, nbr_burn_in):
             inds = np.random.choice(nbr_targets, 2, replace=False)
             nbr_assigned = np.sum(states < 2*nbr_observations) - np.sum(states[inds] < 2*nbr_observations)
-            marginals1 = np.array(weights[0]*likelihoods[inds[0]])
-            marginals2 = np.array(weights[1]*likelihoods[inds[1]])
+            marginals1 = np.array(weights[0]*proposals[inds[0]])
+            marginals2 = np.array(weights[1]*proposals[inds[1]])
             # find all inds where a < nbr_observations and != inds[1] or inds[0]
             for j, v in enumerate(states.tolist()):
+                # go through all the states and put 0 to already assigned measurements
                 if j != inds[0] and j != inds[1] and v < 2*nbr_observations:
                     marginals1[v%nbr_observations+nbr_observations] = 0.
                     marginals2[v%nbr_observations+nbr_observations] = 0.
@@ -320,13 +360,13 @@ class RBPFMParticle(object):
         sR = spatial_var*np.identity(spatial_dim) # measurement noise
         fR = self.fR
 
-        likelihoods, weights, pot_sm, pot_fm, pot_sP, pot_fP = \
+        proposals, weights, pot_sm, pot_fm, pot_sP, pot_fP = \
             self.target_compute_update(spatial_measurements, feature_measurements, sR, fR, location_ids)
 
         if self.use_gibbs:
-            states = self.gibbs_sample_update(nbr_observations, likelihoods, weights, location_ids)
+            states = self.gibbs_sample_update(nbr_observations, proposals, weights, location_ids)
         else:
-            states = self.target_sample_update(nbr_observations, likelihoods, location_ids)
+            states = self.target_sample_update(nbr_observations, proposals, location_ids)
 
         weight_update = np.prod(weights)
 
