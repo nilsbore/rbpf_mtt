@@ -181,10 +181,18 @@ class RBPFMParticle(object):
                 likelihood[nbr_observations:2*nbr_observations] = (1./self.location_area)*feature_likelihoods[k, :]
                 likelihood[2*nbr_observations:] = 1./float(nbr_targets)*spatial_expected_likelihoods[k]*feature_expected_likelihoods[k]
                 #likelihood[2*nbr_observations:] = 1./(self.location_area*feature_support)
-            proposal = prior*likelihood
 
-            weights[k] = np.sum(proposal)
-            proposal *= 1./weights[k]
+            weights[k] = np.sum(prior*likelihood)
+          
+            # in gibbs sampling, we use the uniform density to model the likelihood of clutter
+            if self.use_gibbs:
+                if self.features_only:
+                    likelihood[2*nbr_observations:] = 1./feature_support
+                else:
+                    likelihood[2*nbr_observations:] = 1./(self.location_area*feature_support)
+
+            proposal = prior*likelihood
+            #proposal *= 1./np.sum(proposal)
 
             proposals[k] = proposal
 
@@ -208,7 +216,7 @@ class RBPFMParticle(object):
             nbr_no_meas = 0
             for j in range(0, nbr_targets):
                 # the problem here is that it does not take the other probabilites into account
-                states[j] = np.random.choice(2*nbr_observations+3, p=proposals[j])
+                states[j] = np.random.choice(2*nbr_observations+3, p=proposals[j]/np.sum(proposals))
                 if states[j] < 2*nbr_observations:
                     sampled_states[j] = states[j] % nbr_observations
                 else:
@@ -280,7 +288,7 @@ class RBPFMParticle(object):
         states = np.zeros((nbr_targets,), dtype=int)
         while True:
             for j in range(0, nbr_targets):
-                states[j] = np.random.choice(2*nbr_observations+3, 1, p=proposals[j])
+                states[j] = np.random.choice(2*nbr_observations+3, 1, p=proposals[j]/np.sum(proposals[j]))
             b = states[states < 2*nbr_observations]
             if len(np.unique(np.mod(b, nbr_observations))) == len(b):
                 break
@@ -289,8 +297,8 @@ class RBPFMParticle(object):
         for n in range(0, nbr_burn_in):
             inds = np.random.choice(nbr_targets, 2, replace=False)
             nbr_assigned = np.sum(states < 2*nbr_observations) - np.sum(states[inds] < 2*nbr_observations)
-            marginals1 = np.array(weights[0]*proposals[inds[0]])
-            marginals2 = np.array(weights[1]*proposals[inds[1]])
+            marginals1 = np.array(proposals[inds[0]])
+            marginals2 = np.array(proposals[inds[1]])
             # find all inds where a < nbr_observations and != inds[1] or inds[0]
             for j, v in enumerate(states.tolist()):
                 # go through all the states and put 0 to already assigned measurements

@@ -23,7 +23,7 @@
     <arg name="filter_location_clouds" default=""/>
     <!-- <arg name="data_path" default="$(find rbpf_processing)/data"/> -->
 
-    <arg name="pjump" default="0.05"/>
+    <arg name="pjump" default="0.03"/>
     <arg name="pnone" default="0.02"/>
     <arg name="location_area" default="20.0"/>
     <arg name="use_gibbs" default="false"/>
