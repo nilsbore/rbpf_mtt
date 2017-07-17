@@ -216,7 +216,7 @@ class RBPFMParticle(object):
             nbr_no_meas = 0
             for j in range(0, nbr_targets):
                 # the problem here is that it does not take the other probabilites into account
-                states[j] = np.random.choice(2*nbr_observations+3, p=proposals[j]/np.sum(proposals))
+                states[j] = np.random.choice(2*nbr_observations+3, p=proposals[j]/np.sum(proposals[j]))
                 if states[j] < 2*nbr_observations:
                     sampled_states[j] = states[j] % nbr_observations
                 else:
