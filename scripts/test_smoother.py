@@ -130,6 +130,7 @@ class SmootherNode(object):
             p.position.y = poses[j, 1]
             p.position.z = 0.
             estimates.poses.poses.append(p)
+            estimates.jumps.append(jumps[j])
             #estimates.locations_ids.append(location_ids[j])
             estimates.target_ids.append(j)
         self.estimates_pub.publish(estimates)

@@ -131,6 +131,7 @@ class SmootherServer(object):
         SmootherServer._result.response = "Playing back!"
         self.autostep = True
         self.step()
+        self.step() # This is for the varying version but should not impact anything
 
     def do_smooth(self):
         SmootherServer._feedback.feedback = "Smoothing in progress..."
