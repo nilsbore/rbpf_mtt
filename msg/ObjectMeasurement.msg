@@ -6,3 +6,4 @@ int32 observation_id
 int32 location_id
 int32 timestep
 bool negative_observation
+bool last_observation

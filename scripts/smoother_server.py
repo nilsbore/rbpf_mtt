@@ -131,7 +131,7 @@ class SmootherServer(object):
         SmootherServer._result.response = "Playing back!"
         self.autostep = True
         self.step()
-        self.step() # This is for the varying version but should not impact anything
+        #self.step() # This is for the varying version but should not impact anything
 
     def do_smooth(self):
         SmootherServer._feedback.feedback = "Smoothing in progress..."
@@ -260,6 +260,8 @@ class SmootherServer(object):
 
         clouds_paths = ["", "", "", ""]
 
+        print "========================== DOING ONE STEP! ====================================="
+
         while True:
 
             obs = ObjectMeasurement()
@@ -275,8 +277,11 @@ class SmootherServer(object):
             obs.initialization_id = self.target_ids[self.iteration]
             obs.observation_id = self.observation_ids[self.iteration]
             obs.location_id = self.location_ids[self.iteration]
-            print "Publishing observation: ", self.iteration, " with timestep: ", self.timesteps[self.iteration], " and location id", self.location_ids[self.iteration] #, " and cloud: ", self.cloud_paths[self.iteration]
+            print "Publishing observation: ", self.iteration, " with timestep: ", self.timesteps[self.iteration], " and location id", self.location_ids[self.iteration], " and initialization id: ", self.target_ids[self.iteration]
             obs.timestep = self.timesteps[self.iteration]
+            obs.last_observation = False
+            if self.iteration+1 >= len(self.timesteps) or self.timesteps[self.iteration+1] != first_timestep:
+                obs.last_observation = True
 
             if len(self.cloud_paths) > 0:
                 inds = np.where(init_inds == -1)[0]
@@ -299,7 +304,7 @@ class SmootherServer(object):
 
             if (not self.step_by_timestep) or self.iteration >= len(self.timesteps) \
                or self.timesteps[self.iteration] != first_timestep:
-               break
+                break
 
         if (self.iteration == 0 and self.is_init) or \
            (not self.is_init and len(self.cloud_paths) > 0):
