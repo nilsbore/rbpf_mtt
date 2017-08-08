@@ -53,6 +53,7 @@ add_message_files(
   GMMPoses.msg
   ObjectMeasurement.msg
   ObjectEstimates.msg
+  ParameterEstimates.msg
 )
 
 ## Generate services in the 'srv' folder
