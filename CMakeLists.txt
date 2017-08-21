@@ -62,6 +62,7 @@ add_service_files(
   PublishGMMMap.srv
   PublishGMMMaps.srv
   EstimateParameters.srv
+  DebugParticle.srv
 )
 
 ## Generate actions in the 'action' folder
