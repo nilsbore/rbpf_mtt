@@ -32,7 +32,7 @@ class SmootherServer(object):
 
         print "Location filters: ", self.filter_location_clouds
 
-        max_iterations = 1000
+        max_iterations = 10000
 
         # N x 2 dimensions
         self.spatial_measurements = np.zeros((max_iterations, 3)) # can use the numpy library to save this
@@ -295,12 +295,11 @@ class SmootherServer(object):
                     clouds_paths[ind] += ","
                 clouds_paths[ind] += os.path.join(self.data_path, self.cloud_paths[self.iteration])
 
+            self.iteration += 1
             if self.is_init:
                 self.obs_pub.publish(obs)
             if self.is_smoothed:
-                self.smooth_pub.publish(self.iteration)
-
-            self.iteration += 1
+                self.smooth_pub.publish(self.iteration-1)
 
             if (not self.step_by_timestep) or self.iteration >= len(self.timesteps) \
                or self.timesteps[self.iteration] != first_timestep:
