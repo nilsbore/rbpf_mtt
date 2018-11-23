@@ -2,6 +2,11 @@
 
 Rao-Blackwellized Particle Filter for Multi-Target Jump Tracking of Object Detections
 
+# Clean-up in progress!
+
+I am currently in the process of cleaning up and documenting this code!
+Please contact me if you are interested in using the code and I will try to aid.
+
 # Setup
 
 This package requires very little setup since it's mostly Python.
